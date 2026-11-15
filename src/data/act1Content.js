@@ -301,3 +301,14 @@ export const DUAL_ANCHORS = [
     }
   }
 ];
+
+/**
+ * Where each relic sits inside the two pixel-aligned paintings
+ * (image uv, y-down). London & Paris share one composition.
+ */
+export const ANCHOR_LAYOUT = {
+  hearth_wine: { numeral: 'I', uv: [0.145, 0.33], en: { london: 'The Soho Window', paris: 'The Broken Cask' } },
+  coach: { numeral: 'II', uv: [0.42, 0.58], en: { london: 'The Dover Mail', paris: "The Marquis' Carriage" } },
+  spire_guillotine: { numeral: 'III', uv: [0.79, 0.25], en: { london: "St Paul's & Old Bailey", paris: 'The Bastille, No. 105' } },
+  bank_knitting: { numeral: 'IV', uv: [0.885, 0.63], en: { london: "Tellson's Messenger", paris: 'Madame Defarge' } }
+};

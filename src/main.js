@@ -1,614 +1,494 @@
 import './style.css';
-import { DualWorldEngine } from './engine/DualWorldEngine.js';
+import { PaintedTearEngine } from './engine/PaintedTearEngine.js';
 import { ChamberScore } from './audio/ChamberScore.js';
-import { GLOSS_LEXICON, PROLOGUE_COUPLETS, DUAL_ANCHORS } from './data/act1Content.js';
+import { mountOrnaments } from './ui/ornaments.js';
+import { GLOSS_LEXICON, PROLOGUE_COUPLETS, DUAL_ANCHORS, ANCHOR_LAYOUT } from './data/act1Content.js';
+import londonUrl from './assets/london-street.jpg';
+import parisUrl from './assets/paris-street.jpg';
+import prologueUrl from './assets/prologue-channel.jpg';
 
-const app = document.getElementById('app');
-const canvas = document.getElementById('stage-canvas');
-const loadingCurtain = document.getElementById('loading-curtain');
+const $ = (id) => document.getElementById(id);
+const app = $('app');
+const stage = $('stage');
+const canvas = $('stage-canvas');
+const seamEl = $('seam');
+const seamHandle = $('seam-handle');
+const anchorsLayer = $('anchors-layer');
+const dossier = $('dossier');
+const dossierScroll = dossier.querySelector('.dossier-scroll');
+const vocab = $('vocab');
+const cipher = $('cipher');
 
-// HUD & Seam
-const seamDivider = document.getElementById('seam-divider');
-const seamHandle = document.getElementById('seam-handle');
-const hudCityStatus = document.getElementById('hud-city-status');
-const progressText = document.getElementById('progress-text');
-const btnStyle = document.getElementById('btn-style');
-const btnStyleLabel = document.getElementById('btn-style-label');
-const btnLang = document.getElementById('btn-lang');
-const btnLangLabel = document.getElementById('btn-lang-label');
-const btnAudio = document.getElementById('btn-audio');
-const btnAudioLabel = document.getElementById('btn-audio-label');
+const IMAGES = { london: londonUrl, paris: parisUrl };
+const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI'];
 
-// Beat 1: Prologue
-const prologuePanel = document.getElementById('prologue-panel');
-const coupletStage = document.getElementById('couplet-stage');
-const coupletEn = document.getElementById('couplet-en');
-const coupletZh = document.getElementById('couplet-zh');
-const coupletCounter = document.getElementById('couplet-counter');
-const coupletDots = document.getElementById('couplet-dots');
-const polLondonLabel = document.getElementById('pol-london-label');
-const polParisLabel = document.getElementById('pol-paris-label');
-const btnPrevCouplet = document.getElementById('btn-prev-couplet');
-const btnNextCouplet = document.getElementById('btn-next-couplet');
-const btnEnterDiorama = document.getElementById('btn-enter-diorama');
-
-// Beat 2: Diorama & Anchors
-const dioramaHud = document.getElementById('diorama-hud');
-const anchorsLayer = document.getElementById('anchors-layer');
-const btnBackPrologue = document.getElementById('btn-back-prologue');
-const btnOpenCipher = document.getElementById('btn-open-cipher');
-const btnCipherLabel = document.getElementById('btn-cipher-label');
-
-// Dossier Drawer
-const dossierDrawer = document.getElementById('dossier-drawer');
-const btnCloseDossier = document.getElementById('btn-close-dossier');
-const dossierSideBadge = document.getElementById('dossier-side-badge');
-const dossierChapter = document.getElementById('dossier-chapter');
-const dossierTitle = document.getElementById('dossier-title');
-const dossierMirrorHint = document.getElementById('dossier-mirror-hint');
-const dossierQuoteEn = document.getElementById('dossier-quote-en');
-const dossierQuoteZh = document.getElementById('dossier-quote-zh');
-const dossierNotes = document.getElementById('dossier-notes');
-const btnFlipMirror = document.getElementById('btn-flip-mirror');
-
-// Vocab Popover
-const vocabPopover = document.getElementById('vocab-popover');
-const vocabWord = document.getElementById('vocab-word');
-const vocabIpa = document.getElementById('vocab-ipa');
-const vocabMeaning = document.getElementById('vocab-meaning');
-const vocabContext = document.getElementById('vocab-context');
-const btnSpeakVocab = document.getElementById('btn-speak-vocab');
-const btnCloseVocab = document.getElementById('btn-close-vocab');
-
-// Beat 3: Cipher Modal
-const cipherModal = document.getElementById('cipher-modal');
-const btnCloseCipher = document.getElementById('btn-close-cipher');
-const cipherStepSeal = document.getElementById('cipher-step-seal');
-const cipherStepDecode = document.getElementById('cipher-step-decode');
-const cipherStepFinale = document.getElementById('cipher-step-finale');
-const btnBreakSeal = document.getElementById('btn-break-seal');
-const resonanceSlider = document.getElementById('resonance-slider');
-const resPercent = document.getElementById('res-percent');
-const cipherRevealPreview = document.getElementById('cipher-reveal-preview');
-const finaleDossierCount = document.getElementById('finale-dossier-count');
-const btnFreeExplore = document.getElementById('btn-free-explore');
-const btnReplayAct1 = document.getElementById('btn-replay-act1');
-
-// State
 const state = {
-  beat: 'prologue', // 'prologue' | 'diorama' | 'finale'
-  seamX: 0.5,
+  beat: 'prologue',
+  seam: 1,
   coupletIndex: 0,
-  langMode: 'bilingual', // 'bilingual' | 'en' | 'zh'
-  monoMode: false,
-  visitedDossiers: new Set(),
-  activeAnchorId: null,
-  activeDossierSide: null,
-  lastPinSides: {},
-  lastProjected: [],
-  currentSpeakText: '',
-  seamTween: null,
-  cipherSolved: false
+  lang: 'bilingual',
+  mono: false,
+  visited: new Set(),
+  active: null, // { id, side }
+  sides: {},
+  tween: null,
+  speak: '',
+  solved: false,
+  imgAspect: 1672 / 941
 };
 
 const audio = new ChamberScore();
+mountOrnaments();
 
-function escapeHtml(str) {
-  return String(str)
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;');
-}
+const esc = (s) => String(s).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
+const rich = (raw) => esc(raw).replace(/\{\{([a-z0-9_]+)\|([^}]+)\}\}/gi, (_, k, label) => `<span class="gloss-term" data-term="${k}" role="button" tabindex="0">${label}</span>`);
 
-function renderRichText(raw) {
-  return escapeHtml(raw).replace(/\{\{([a-z0-9_]+)\|([^}]+)\}\}/gi, (_, key, label) => {
-    return `<span class="gloss-term" data-term="${key}" role="button" tabindex="0">${label}</span>`;
+// ============================ ENGINE ============================
+let engine;
+try {
+  engine = new PaintedTearEngine(canvas, {
+    onFrame: () => {
+      stepTween();
+      layoutAnchors();
+    },
+    onProgress: (p) => ($('curtain-bar').style.width = `${Math.round(p * 100)}%`)
   });
+  engine.setSeam(1);
+  engine
+    .load({ london: londonUrl, paris: parisUrl, prologue: prologueUrl })
+    .then(() => {
+      state.imgAspect = engine.imgAspect;
+      setTimeout(() => $('curtain').classList.add('gone'), 350);
+    })
+    .catch(() => $('curtain').classList.add('gone'));
+} catch (err) {
+  console.error(err);
+  $('curtain').classList.add('gone');
+  stage.style.background = `center / cover no-repeat url(${prologueUrl})`;
 }
 
-// ==================== ENGINE BOOT ====================
-let hideTimer = setTimeout(() => {
-  loadingCurtain.classList.add('fade-out');
-}, 4800);
-
-const engine = new DualWorldEngine(canvas, {
-  onLoaded: () => {
-    clearTimeout(hideTimer);
-    setTimeout(() => {
-      loadingCurtain.classList.add('fade-out');
-    }, 240);
-  },
-  onError: () => {
-    clearTimeout(hideTimer);
-    loadingCurtain.classList.add('fade-out');
-  },
-  onFrame: () => {
-    updateSeamAnimation();
-    updateProjectedAnchors();
-  }
-});
-
-// ==================== SEAM CONTROL ====================
-function applySeam(x, velocity = 0) {
-  const clamped = Math.max(0.04, Math.min(0.96, x));
-  state.seamX = clamped;
-  engine.setSeam(clamped, velocity);
-  audio.updateSeam(clamped);
-
-  const pctLondon = Math.round(clamped * 100);
-  const pctParis = 100 - pctLondon;
-  seamDivider.style.left = `${clamped * 100}%`;
-  seamDivider.setAttribute('aria-valuenow', String(pctLondon));
-  hudCityStatus.textContent = `伦敦 LONDON ${pctLondon}% — 巴黎 PARIS ${pctParis}%`;
-
-  // Update prologue polarity visual emphasis
-  coupletStage.classList.remove('polarity-london', 'polarity-paris');
-  if (clamped > 0.56) {
-    coupletStage.classList.add('polarity-london');
-  } else if (clamped < 0.44) {
-    coupletStage.classList.add('polarity-paris');
-  }
+// ============================ SEAM ============================
+function applySeam(x, vel = 0) {
+  const c = Math.max(0, Math.min(1, x));
+  state.seam = c;
+  engine?.setSeam(c, vel);
+  audio.updateSeam(c);
+  seamEl.style.left = `${c * 100}%`;
+  const L = Math.round(c * 100);
+  seamEl.setAttribute('aria-valuenow', String(L));
+  $('meter-london').style.width = `${L}%`;
+  $('meter-paris').style.width = `${100 - L}%`;
+  $('caption-meta').textContent = `LONDON ${L} · PARIS ${100 - L}`;
 }
 
-function animateSeamTo(targetX, durationMs = 520) {
-  state.seamTween = {
-    startX: state.seamX,
-    targetX: Math.max(0.05, Math.min(0.95, targetX)),
-    startTime: performance.now(),
-    duration: durationMs
-  };
+function tweenSeam(to, ms = 700) {
+  state.tween = { from: state.seam, to: Math.max(0, Math.min(1, to)), t0: performance.now(), ms };
 }
 
-function updateSeamAnimation() {
-  if (!state.seamTween) return;
-  const elapsed = performance.now() - state.seamTween.startTime;
-  const p = Math.min(1, elapsed / state.seamTween.duration);
-  const ease = 1 - Math.pow(1 - p, 3);
-  const nextX = state.seamTween.startX + (state.seamTween.targetX - state.seamTween.startX) * ease;
-  applySeam(nextX, (state.seamTween.targetX - state.seamTween.startX) * 0.04);
-  if (p >= 1) {
-    state.seamTween = null;
-  }
+function stepTween() {
+  const tw = state.tween;
+  if (!tw) return;
+  const p = Math.min(1, (performance.now() - tw.t0) / tw.ms);
+  const e = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+  applySeam(tw.from + (tw.to - tw.from) * e, (tw.to - tw.from) * 0.03);
+  if (p >= 1) state.tween = null;
 }
 
-// Seam dragging (mouse & touch via Pointer Events)
-let draggingSeam = false;
-let lastPointerX = 0;
-
+let drag = null;
 seamHandle.addEventListener('pointerdown', (e) => {
   e.preventDefault();
   e.stopPropagation();
-  draggingSeam = true;
-  state.seamTween = null;
-  lastPointerX = e.clientX;
-  seamDivider.classList.add('dragging');
-  engine.setOrbitEnabled(false);
+  state.tween = null;
+  drag = { kind: 'seam', lastX: e.clientX };
+  seamEl.classList.add('dragging');
   seamHandle.setPointerCapture(e.pointerId);
 });
 
+stage.addEventListener('pointerdown', (e) => {
+  if (state.beat !== 'theatre' || e.target.closest('.anchor, .seam')) return;
+  if (!engine || engine.panLimit() <= 0) return;
+  drag = { kind: 'pan', lastX: e.clientX };
+});
+
 window.addEventListener('pointermove', (e) => {
-  if (!draggingSeam) return;
-  const dx = e.clientX - lastPointerX;
-  lastPointerX = e.clientX;
-  const normX = e.clientX / Math.max(1, window.innerWidth);
-  const velocity = dx / Math.max(1, window.innerWidth);
-  applySeam(normX, velocity);
+  if (!drag) return;
+  const rect = stage.getBoundingClientRect();
+  const dx = e.clientX - drag.lastX;
+  drag.lastX = e.clientX;
+  if (drag.kind === 'seam') {
+    applySeam((e.clientX - rect.left) / rect.width, dx / rect.width);
+  } else if (drag.kind === 'pan') {
+    const k = engine._fit(engine.imgAspect)[0];
+    engine.setPan(engine.panTarget - (dx / rect.width) * k);
+  }
 });
 
-const stopSeamDrag = () => {
-  if (!draggingSeam) return;
-  draggingSeam = false;
-  seamDivider.classList.remove('dragging');
-  engine.setOrbitEnabled(true);
+const endDrag = () => {
+  if (!drag) return;
+  drag = null;
+  seamEl.classList.remove('dragging');
 };
+window.addEventListener('pointerup', endDrag);
+window.addEventListener('pointercancel', endDrag);
 
-window.addEventListener('pointerup', stopSeamDrag);
-window.addEventListener('pointercancel', stopSeamDrag);
-
-// Shift + drag anywhere on canvas also moves seam
-canvas.addEventListener('pointerdown', (e) => {
-  if (e.shiftKey) {
-    draggingSeam = true;
-    state.seamTween = null;
-    lastPointerX = e.clientX;
-    seamDivider.classList.add('dragging');
-    engine.setOrbitEnabled(false);
-  }
+seamEl.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowLeft') applySeam(state.seam - 0.03, -0.02);
+  if (e.key === 'ArrowRight') applySeam(state.seam + 0.03, 0.02);
 });
 
-seamDivider.addEventListener('keydown', (e) => {
-  if (e.key === 'ArrowLeft') {
-    applySeam(state.seamX - 0.04, -0.02);
-  } else if (e.key === 'ArrowRight') {
-    applySeam(state.seamX + 0.04, 0.02);
+// ============================ ANCHORS ============================
+const anchorEls = {};
+
+function buildAnchors() {
+  DUAL_ANCHORS.forEach((a) => {
+    const lay = ANCHOR_LAYOUT[a.id];
+    const el = document.createElement('button');
+    el.type = 'button';
+    el.className = 'anchor london';
+    el.innerHTML = `<span class="anchor-mark">${lay.numeral}</span><span class="anchor-plate"><b></b><small></small></span>`;
+    el.addEventListener('click', () => openDossier(a.id, state.sides[a.id] || 'london'));
+    el.addEventListener('pointerenter', () => engine?.setFocus(lay.uv));
+    el.addEventListener('pointerleave', () => {
+      if (!state.active || state.active.id !== a.id) engine?.setFocus(null);
+    });
+    anchorsLayer.appendChild(el);
+    anchorEls[a.id] = el;
+  });
+}
+
+function layoutAnchors() {
+  if (!engine) return;
+  DUAL_ANCHORS.forEach((a) => {
+    const lay = ANCHOR_LAYOUT[a.id];
+    const el = anchorEls[a.id];
+    const p = engine.imageToScreen(lay.uv[0], lay.uv[1]);
+    const off = p.nx < 0.02 || p.nx > 0.98 || p.ny < 0.05 || p.ny > 0.95;
+    el.style.visibility = off ? 'hidden' : 'visible';
+    const flipLeft = p.nx > 0.62;
+    el.style.flexDirection = flipLeft ? 'row-reverse' : 'row';
+    el.style.transform = flipLeft
+      ? `translate(${p.x}px, ${p.y}px) translate(calc(-100% + 17px), -50%)`
+      : `translate(${p.x}px, ${p.y}px) translate(-17px, -50%)`;
+
+    const side = p.nx < state.seam ? 'london' : 'paris';
+    const prev = state.sides[a.id];
+    if (prev !== side) {
+      state.sides[a.id] = side;
+      el.classList.toggle('london', side === 'london');
+      el.classList.toggle('paris', side === 'paris');
+      el.querySelector('b').textContent = a[side].pinLabel;
+      el.querySelector('small').textContent = lay.en[side];
+      if (prev && state.beat === 'theatre') {
+        el.classList.remove('flip');
+        void el.offsetWidth;
+        el.classList.add('flip');
+        audio.playMirrorFlip(side);
+        if (state.active && state.active.id === a.id) openDossier(a.id, side, true);
+      }
+    }
+    el.classList.toggle('visited', state.visited.has(`${a.id}:${side}`));
+  });
+}
+
+// ============================ DOSSIER ============================
+function setPlate(id, side) {
+  const plate = $('dossier-plate');
+  const [u, v] = ANCHOR_LAYOUT[id].uv;
+  const w = plate.clientWidth || 380;
+  const h = plate.clientHeight || 196;
+  const imgW = w * 2.5;
+  const imgH = imgW / state.imgAspect;
+  const x = Math.min(0, Math.max(w - imgW, w / 2 - u * imgW));
+  const y = Math.min(0, Math.max(h - imgH, h / 2 - v * imgH));
+  plate.style.backgroundImage = `url(${IMAGES[side]})`;
+  plate.style.backgroundSize = `${imgW}px ${imgH}px`;
+  plate.style.backgroundPosition = `${x}px ${y}px`;
+}
+
+function openDossier(id, side, live = false) {
+  const a = DUAL_ANCHORS.find((x) => x.id === id);
+  if (!a) return;
+  const doc = a[side];
+  const wasOpen = app.classList.contains('panel-open');
+  state.active = { id, side };
+  state.visited.add(`${id}:${side}`);
+  updateProgress();
+  Object.entries(anchorEls).forEach(([k, el]) => el.classList.toggle('active', k === id));
+
+  const render = () => {
+    $('dossier-badge').textContent = side === 'london' ? 'LONDON · 1775' : 'PARIS · 1775';
+    $('dossier-badge').className = `plate-badge ${side}`;
+    $('dossier-chapter').textContent = doc.chapter;
+    $('dossier-title').textContent = doc.title;
+    $('dossier-en').innerHTML = rich(doc.quoteEn);
+    $('dossier-zh').textContent = doc.quoteZh;
+    $('dossier-notes').textContent = doc.notes;
+    $('dossier-mirror').textContent = doc.mirrorHint.replace(/[→←]/g, '').trim();
+    const flip = $('btn-flip');
+    flip.className = `btn-ledger ${side === 'london' ? 'to-paris' : 'to-london'}`;
+    flip.innerHTML = side === 'london' ? '<span>撕到对岸 · 看巴黎的同一处</span><span>→</span>' : '<span>← 撕回伦敦 · 看雾夜里的同一处</span><span></span>';
+    setPlate(id, side);
+  };
+
+  if (live && wasOpen) {
+    dossierScroll.classList.remove('turn');
+    void dossierScroll.offsetWidth;
+    dossierScroll.classList.add('turn');
+    setTimeout(render, 180);
+  } else {
+    render();
+    dossierScroll.scrollTop = 0;
   }
+
+  app.classList.add('panel-open');
+  dossier.setAttribute('aria-hidden', 'false');
+  if (!live) audio.playPageTurn();
+  engine?.setFocus(ANCHOR_LAYOUT[id].uv);
+
+  // On narrow screens, bring the relic into view
+  if (engine && engine.panLimit() > 0) {
+    engine.setPan(ANCHOR_LAYOUT[id].uv[0] - 0.5);
+  }
+  setTimeout(() => {
+    setPlate(id, side); // re-measure after panel animation
+    if (engine && state.active && state.active.id === id) engine.setPan(ANCHOR_LAYOUT[id].uv[0] - 0.5);
+  }, 650);
+}
+
+function closeDossier() {
+  app.classList.remove('panel-open');
+  dossier.setAttribute('aria-hidden', 'true');
+  state.active = null;
+  Object.values(anchorEls).forEach((el) => el.classList.remove('active'));
+  engine?.setFocus(null);
+}
+
+$('btn-close-dossier').addEventListener('click', closeDossier);
+
+$('btn-flip').addEventListener('click', () => {
+  if (!state.active || !engine) return;
+  const [u, v] = ANCHOR_LAYOUT[state.active.id].uv;
+  const nx = engine.imageToScreen(u, v).nx;
+  tweenSeam(state.active.side === 'london' ? Math.max(0.03, nx - 0.13) : Math.min(0.97, nx + 0.13), 900);
 });
 
-// ==================== BEAT 1: PROLOGUE COUPLETS ====================
-function buildCoupletDots() {
-  coupletDots.innerHTML = '';
-  PROLOGUE_COUPLETS.forEach((c, idx) => {
-    const dot = document.createElement('button');
-    dot.type = 'button';
-    dot.className = 'couplet-dot';
-    dot.setAttribute('aria-label', `第 ${idx + 1} 句`);
-    dot.addEventListener('click', () => {
-      state.coupletIndex = idx;
+function updateProgress() {
+  const n = state.visited.size;
+  $('progress-text').textContent = String(n);
+  $('finale-count').textContent = `${n} / 8`;
+  const ready = n >= 4;
+  $('btn-open-cipher').classList.toggle('ready', ready);
+  $('btn-cipher-label').textContent = ready ? '密信已共鸣 · 启封' : `启封多佛密信 · ${n}/4`;
+  $('caption-text').textContent =
+    n === 0
+      ? engine && engine.panLimit() > 0
+        ? '拖封蜡撕开两座城；拖动画面左右平移，找齐四件信物。'
+        : '按住中央封蜡左右拖动，撕开同一条街的两个世界；点选画中信物翻阅档案。'
+      : ready
+        ? '两座城的回声已经足够响亮——右下角的火漆密信可以启封了。'
+        : `已翻阅 ${n} 份档案。试着把裂隙拖过同一件信物，看它在对岸变成什么。`;
+}
+
+// ============================ GLOSS ============================
+function openVocab(key, trigger) {
+  const g = GLOSS_LEXICON[key];
+  if (!g) return;
+  $('vocab-word').textContent = g.word;
+  $('vocab-ipa').textContent = g.ipa ? `  ${g.ipa}` : '';
+  $('vocab-meaning').textContent = g.meaning;
+  $('vocab-context').textContent = g.context;
+  if (state.beat === 'prologue') state.speak = PROLOGUE_COUPLETS[state.coupletIndex].speak;
+  else if (state.active) state.speak = DUAL_ANCHORS.find((a) => a.id === state.active.id)[state.active.side].speak;
+  else state.speak = g.word;
+  vocab.classList.remove('hidden');
+  const r = trigger.getBoundingClientRect();
+  const w = vocab.offsetWidth;
+  const h = vocab.offsetHeight;
+  let left = Math.max(12, Math.min(window.innerWidth - w - 12, r.left + r.width / 2 - w / 2));
+  let top = r.top - h - 10;
+  if (top < 70) top = Math.min(window.innerHeight - h - 12, r.bottom + 10);
+  vocab.style.left = `${left}px`;
+  vocab.style.top = `${top}px`;
+}
+
+document.addEventListener('click', (e) => {
+  const g = e.target.closest('.gloss-term');
+  if (g) {
+    e.stopPropagation();
+    openVocab(g.dataset.term, g);
+    return;
+  }
+  if (!vocab.classList.contains('hidden') && !vocab.contains(e.target)) vocab.classList.add('hidden');
+});
+$('btn-close-vocab').addEventListener('click', () => vocab.classList.add('hidden'));
+$('btn-speak').addEventListener('click', () => audio.speakEnglishSnippet(state.speak));
+
+// ============================ PROLOGUE ============================
+function buildTabs() {
+  const box = $('couplet-tabs');
+  PROLOGUE_COUPLETS.forEach((_, i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'couplet-tab';
+    b.textContent = ROMAN[i];
+    b.addEventListener('click', () => {
+      state.coupletIndex = i;
       renderCouplet();
       audio.playPageTurn();
     });
-    coupletDots.appendChild(dot);
+    box.appendChild(b);
   });
 }
 
 function renderCouplet() {
   const c = PROLOGUE_COUPLETS[state.coupletIndex];
-  coupletCounter.textContent = `${String(state.coupletIndex + 1).padStart(2, '0')} / ${String(
-    PROLOGUE_COUPLETS.length
-  ).padStart(2, '0')}`;
-
-  coupletEn.innerHTML = `<span class="clause-london">${renderRichText(c.enLeft)}</span> <span class="clause-paris">${renderRichText(
-    c.enRight
-  )}</span>`;
-  coupletZh.innerHTML = `<span class="clause-london">${escapeHtml(c.zhLeft)}</span><span class="clause-paris">${escapeHtml(
-    c.zhRight
-  )}</span>`;
-
-  polLondonLabel.textContent = c.londonTag;
-  polParisLabel.textContent = c.parisTag;
-
-  const dots = coupletDots.querySelectorAll('.couplet-dot');
-  dots.forEach((d, idx) => d.classList.toggle('active', idx === state.coupletIndex));
+  $('couplet-counter').textContent = `${ROMAN[state.coupletIndex]} / VI`;
+  $('couplet-en').innerHTML = `<span class="clause-london">${rich(c.enLeft)}</span> <span class="clause-paris">${rich(c.enRight)}</span>`;
+  $('couplet-zh').innerHTML = `<span class="clause-london">${esc(c.zhLeft)}</span><span class="clause-paris">${esc(c.zhRight)}</span>`;
+  document.querySelectorAll('.couplet-tab').forEach((t, i) => t.classList.toggle('active', i === state.coupletIndex));
 }
 
-btnPrevCouplet.addEventListener('click', () => {
-  state.coupletIndex = (state.coupletIndex - 1 + PROLOGUE_COUPLETS.length) % PROLOGUE_COUPLETS.length;
+const stepCouplet = (d) => {
+  state.coupletIndex = (state.coupletIndex + d + PROLOGUE_COUPLETS.length) % PROLOGUE_COUPLETS.length;
   renderCouplet();
   audio.playPageTurn();
-});
+};
+$('btn-prev-couplet').addEventListener('click', () => stepCouplet(-1));
+$('btn-next-couplet').addEventListener('click', () => stepCouplet(1));
 
-btnNextCouplet.addEventListener('click', () => {
-  state.coupletIndex = (state.coupletIndex + 1) % PROLOGUE_COUPLETS.length;
-  renderCouplet();
-  audio.playPageTurn();
-});
-
-// ==================== BEAT TRANSITIONS ====================
+// ============================ BEATS ============================
+let revealTimer = null;
 function setBeat(beat) {
   state.beat = beat;
   app.dataset.beat = beat;
-
+  clearTimeout(revealTimer);
   if (beat === 'prologue') {
-    prologuePanel.classList.remove('hidden');
-    dioramaHud.classList.add('hidden');
-    anchorsLayer.classList.add('hidden');
     closeDossier();
-    engine.focusPreset('prologue', 1.1);
-  } else if (beat === 'diorama') {
-    prologuePanel.classList.add('hidden');
-    dioramaHud.classList.remove('hidden');
-    anchorsLayer.classList.remove('hidden');
-    engine.focusPreset('diorama', 1.05);
-  } else if (beat === 'finale') {
-    prologuePanel.classList.add('hidden');
-    dioramaHud.classList.remove('hidden');
-    anchorsLayer.classList.remove('hidden');
-    engine.focusPreset('finale', 1.2);
+    engine?.setScene(0);
+    tweenSeam(1, 600);
+  } else {
+    engine?.setScene(1);
+    applySeam(1);
+    revealTimer = setTimeout(() => tweenSeam(0.52, 1800), 1500);
   }
 }
 
-btnEnterDiorama.addEventListener('click', () => {
+$('btn-enter').addEventListener('click', () => {
   audio.playPageTurn();
-  setBeat('diorama');
+  setBeat('theatre');
 });
-
-btnBackPrologue.addEventListener('click', () => {
-  audio.playPageTurn();
+$('btn-back-prologue').addEventListener('click', () => setBeat('prologue'));
+$('home-link').addEventListener('click', (e) => {
+  e.preventDefault();
   setBeat('prologue');
 });
 
-// ==================== BEAT 2: DUAL-WORLD ANCHORS ====================
-const anchorButtons = {};
-
-function createAnchorButtons() {
-  anchorsLayer.innerHTML = '';
-  DUAL_ANCHORS.forEach((anchor) => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'anchor-pin side-london';
-    btn.dataset.anchorId = anchor.id;
-    btn.innerHTML = `<span class="anchor-orb"></span><span class="anchor-label">${anchor.london.pinLabel}</span>`;
-    btn.addEventListener('click', () => {
-      const proj = state.lastProjected.find((p) => p.id === anchor.id);
-      const side = proj ? proj.side : 'london';
-      openDossier(anchor.id, side, true);
-    });
-    anchorsLayer.appendChild(btn);
-    anchorButtons[anchor.id] = btn;
-  });
-}
-
-function updateProjectedAnchors() {
-  if (state.beat === 'prologue') return;
-  const projected = engine.projectAnchors(DUAL_ANCHORS);
-  state.lastProjected = projected;
-
-  projected.forEach((item) => {
-    const anchor = DUAL_ANCHORS.find((a) => a.id === item.id);
-    const btn = anchorButtons[item.id];
-    if (!anchor || !btn) return;
-
-    if (!item.visible) {
-      btn.classList.add('hidden');
-      return;
-    }
-
-    btn.classList.remove('hidden');
-    btn.style.left = `${item.sx * 100}%`;
-    btn.style.top = `${item.sy * 100}%`;
-
-    const prevSide = state.lastPinSides[item.id];
-    if (prevSide && prevSide !== item.side) {
-      audio.playMirrorFlip(item.side);
-      // If user has this dossier open and drags seam across it, live-flip the open parchment!
-      if (state.activeAnchorId === item.id && !dossierDrawer.classList.contains('hidden')) {
-        openDossier(item.id, item.side, false);
-      }
-    }
-    state.lastPinSides[item.id] = item.side;
-
-    btn.classList.toggle('side-london', item.side === 'london');
-    btn.classList.toggle('side-paris', item.side === 'paris');
-    btn.classList.toggle('visited', state.visitedDossiers.has(`${item.id}:${item.side}`));
-    const labelSpan = btn.querySelector('.anchor-label');
-    const desiredLabel = anchor[item.side].pinLabel;
-    if (labelSpan && labelSpan.textContent !== desiredLabel) {
-      labelSpan.textContent = desiredLabel;
-    }
-  });
-}
-
-function openDossier(anchorId, side, shouldFocusCamera = false) {
-  const anchor = DUAL_ANCHORS.find((a) => a.id === anchorId);
-  if (!anchor) return;
-  const doc = anchor[side];
-  state.activeAnchorId = anchorId;
-  state.activeDossierSide = side;
-
-  state.visitedDossiers.add(`${anchorId}:${side}`);
-  updateProgressUI();
-
-  dossierSideBadge.textContent = doc.badge;
-  dossierSideBadge.className = `dossier-side-badge ${side}`;
-  dossierChapter.textContent = doc.chapter;
-  dossierTitle.textContent = doc.title;
-  dossierMirrorHint.textContent = doc.mirrorHint;
-  dossierQuoteEn.innerHTML = renderRichText(doc.quoteEn);
-  dossierQuoteZh.textContent = doc.quoteZh;
-  dossierNotes.textContent = doc.notes;
-
-  btnFlipMirror.textContent =
-    side === 'london' ? '拉动裂隙覆入巴黎夜色，翻看对岸镜像 →' : '← 拉动裂隙退回伦敦雾夜，翻看对岸镜像';
-
-  dossierDrawer.classList.remove('hidden');
-  app.classList.add('drawer-open');
-  audio.playPageTurn();
-
-  if (shouldFocusCamera) {
-    engine.focusWorldPoint(anchor.pos, 0.85);
-  }
-}
-
-function closeDossier() {
-  dossierDrawer.classList.add('hidden');
-  app.classList.remove('drawer-open');
-  state.activeAnchorId = null;
-}
-
-btnCloseDossier.addEventListener('click', closeDossier);
-
-btnFlipMirror.addEventListener('click', () => {
-  if (!state.activeAnchorId) return;
-  const proj = state.lastProjected.find((p) => p.id === state.activeAnchorId);
-  const sx = proj ? proj.sx : 0.5;
-  if (state.activeDossierSide === 'london') {
-    // Move seam left of anchor sx so anchor falls into Paris side
-    const target = Math.max(0.06, Math.min(state.seamX - 0.14, sx - 0.11));
-    animateSeamTo(target, 560);
-  } else {
-    // Move seam right of anchor sx so anchor falls into London side
-    const target = Math.min(0.94, Math.max(state.seamX + 0.14, sx + 0.11));
-    animateSeamTo(target, 560);
-  }
-});
-
-function updateProgressUI() {
-  const count = state.visitedDossiers.size;
-  progressText.textContent = `档案 ${count} / 8`;
-  finaleDossierCount.textContent = `${count} / 8`;
-  btnOpenCipher.classList.toggle('ready', count >= 2);
-  btnCipherLabel.textContent = count >= 2 ? '火漆密信已共鸣 · 点击启封' : '启封多佛密信';
-}
-
-// ==================== GLOSSARY / VOCAB POPOVER ====================
-function openVocabPopover(termKey, triggerEl) {
-  const entry = GLOSS_LEXICON[termKey];
-  if (!entry) return;
-
-  vocabWord.textContent = entry.word;
-  vocabIpa.textContent = entry.ipa || '';
-  vocabMeaning.textContent = entry.meaning;
-  vocabContext.textContent = entry.context;
-
-  // Determine snippet to pronounce on click
-  if (state.beat === 'prologue') {
-    state.currentSpeakText = PROLOGUE_COUPLETS[state.coupletIndex].speak;
-  } else if (state.activeAnchorId && state.activeDossierSide) {
-    const a = DUAL_ANCHORS.find((item) => item.id === state.activeAnchorId);
-    state.currentSpeakText = a ? a[state.activeDossierSide].speak : entry.word;
-  } else {
-    state.currentSpeakText = entry.word;
-  }
-
-  vocabPopover.classList.remove('hidden');
-
-  const rect = triggerEl.getBoundingClientRect();
-  const popW = Math.min(330, window.innerWidth - 24);
-  const popH = vocabPopover.offsetHeight || 160;
-  let left = rect.left + rect.width * 0.5 - popW * 0.5;
-  left = Math.max(12, Math.min(window.innerWidth - popW - 12, left));
-  let top = rect.top - popH - 12;
-  if (top < 64) {
-    top = Math.min(window.innerHeight - popH - 12, rect.bottom + 12);
-  }
-
-  vocabPopover.style.left = `${left}px`;
-  vocabPopover.style.top = `${top}px`;
-}
-
-document.addEventListener('click', (e) => {
-  const gloss = e.target.closest('.gloss-term');
-  if (gloss) {
-    e.stopPropagation();
-    openVocabPopover(gloss.dataset.term, gloss);
-    return;
-  }
-  if (!vocabPopover.classList.contains('hidden') && !vocabPopover.contains(e.target)) {
-    vocabPopover.classList.add('hidden');
-  }
-});
-
-btnCloseVocab.addEventListener('click', () => vocabPopover.classList.add('hidden'));
-btnSpeakVocab.addEventListener('click', () => {
-  audio.speakEnglishSnippet(state.currentSpeakText);
-});
-
-// ==================== HUD TOGGLES ====================
-btnStyle.addEventListener('click', () => {
-  state.monoMode = !state.monoMode;
-  engine.setMonoMode(state.monoMode);
-  app.dataset.style = state.monoMode ? 'mono' : 'oil';
-  btnStyle.setAttribute('aria-pressed', String(state.monoMode));
-  btnStyleLabel.textContent = state.monoMode ? '纯素版画' : '油彩铜刻';
-  audio.playPageTurn();
-});
-
-const LANG_ORDER = [
-  { key: 'bilingual', label: '中英双语' },
-  { key: 'en', label: '原版英文' },
-  { key: 'zh', label: '文学中译' }
+// ============================ TOOLS ============================
+const LANGS = [
+  { key: 'bilingual', label: '中英对照' },
+  { key: 'en', label: '英文原著' },
+  { key: 'zh', label: '中文译本' }
 ];
-
-btnLang.addEventListener('click', () => {
-  const curIdx = LANG_ORDER.findIndex((item) => item.key === state.langMode);
-  const next = LANG_ORDER[(curIdx + 1) % LANG_ORDER.length];
-  state.langMode = next.key;
+$('btn-lang').addEventListener('click', () => {
+  const i = LANGS.findIndex((l) => l.key === state.lang);
+  const next = LANGS[(i + 1) % LANGS.length];
+  state.lang = next.key;
   app.dataset.lang = next.key;
-  btnLangLabel.textContent = next.label;
-  audio.playPageTurn();
+  $('btn-lang').textContent = next.label;
 });
 
-btnAudio.addEventListener('click', async () => {
-  const active = await audio.toggle();
-  btnAudio.setAttribute('aria-pressed', String(active));
-  btnAudioLabel.textContent = active ? '室内乐中' : '开启声场';
+$('btn-style').addEventListener('click', () => {
+  state.mono = !state.mono;
+  engine?.setMono(state.mono);
+  $('btn-style').setAttribute('aria-pressed', String(state.mono));
+  $('btn-style').textContent = state.mono ? '油画' : '铜版画';
 });
 
-// ==================== BEAT 3: CIPHER MODAL & FINALE ====================
-const TARGET_PHRASE = 'RECALLED TO LIFE.';
-const TARGET_YEAR_TICK = 75;
+async function toggleAudio() {
+  const on = await audio.toggle();
+  $('btn-audio').setAttribute('aria-pressed', String(on));
+  $('btn-audio').textContent = on ? '声音开' : '声音关';
+  $('btn-pro-audio').textContent = on ? '室内乐 · 已开启' : '开启室内乐';
+}
+$('btn-audio').addEventListener('click', toggleAudio);
+$('btn-pro-audio').addEventListener('click', toggleAudio);
 
-function openCipherModal() {
+// ============================ CIPHER ============================
+const PHRASE = 'RECALLED TO LIFE';
+const TARGET = 56.25; // 1775 on a 1757–1789 dial
+const yearOf = (v) => Math.round(1757 + v * 0.32);
+
+function showStep(step) {
+  ['seal', 'decode', 'finale'].forEach((s) => $(`step-${s}`).classList.toggle('hidden', s !== step));
+}
+
+$('btn-open-cipher').addEventListener('click', () => {
   closeDossier();
-  vocabPopover.classList.add('hidden');
-  cipherModal.classList.remove('hidden');
-
-  if (state.cipherSolved) {
-    showCipherStep('finale');
-  } else {
-    showCipherStep('seal');
-  }
+  vocab.classList.add('hidden');
+  cipher.classList.remove('hidden');
+  showStep(state.solved ? 'finale' : 'seal');
   audio.playPageTurn();
-}
-
-function showCipherStep(step) {
-  cipherStepSeal.classList.toggle('hidden', step !== 'seal');
-  cipherStepDecode.classList.toggle('hidden', step !== 'decode');
-  cipherStepFinale.classList.toggle('hidden', step !== 'finale');
-}
-
-btnOpenCipher.addEventListener('click', openCipherModal);
-btnCloseCipher.addEventListener('click', () => {
-  cipherModal.classList.add('hidden');
+});
+$('btn-close-cipher').addEventListener('click', () => cipher.classList.add('hidden'));
+cipher.addEventListener('click', (e) => {
+  if (e.target === cipher) cipher.classList.add('hidden');
 });
 
-btnBreakSeal.addEventListener('click', () => {
+$('btn-break-seal').addEventListener('click', () => {
   audio.playWaxShatter();
-  btnBreakSeal.disabled = true;
-  btnBreakSeal.style.transform = 'scale(1.18)';
+  $('btn-break-seal').classList.add('broken');
   setTimeout(() => {
-    btnBreakSeal.disabled = false;
-    btnBreakSeal.style.transform = '';
-    resonanceSlider.value = '18';
-    updateResonanceReadout(18);
-    showCipherStep('decode');
-  }, 280);
+    $('btn-break-seal').classList.remove('broken');
+    $('resonance').value = '18';
+    readDial(18);
+    showStep('decode');
+  }, 380);
 });
 
-function updateResonanceReadout(val) {
-  const diff = Math.abs(val - TARGET_YEAR_TICK);
-  const pct = Math.max(0, Math.min(100, Math.round(100 - diff * 2.1)));
-  resPercent.textContent = `${pct}% 共振`;
-
-  // Progressively unscramble TARGET_PHRASE
-  const revealRatio = pct / 100;
-  let masked = '';
-  for (let i = 0; i < TARGET_PHRASE.length; i++) {
-    const ch = TARGET_PHRASE[i];
-    if (ch === ' ' || ch === '.') {
-      masked += ch === ' ' ? '  ' : ch;
-    } else if (((i * 37) % 100) / 100 < revealRatio) {
-      masked += ch;
-    } else {
-      masked += '_';
-    }
-  }
-  cipherRevealPreview.textContent = masked;
-
-  if (diff <= 4 && !state.cipherSolved) {
-    state.cipherSolved = true;
-    cipherRevealPreview.textContent = TARGET_PHRASE;
-    resPercent.textContent = '100% 共振 · 显影成功';
+function readDial(v) {
+  const year = yearOf(v);
+  const diff = Math.abs(v - TARGET);
+  const ratio = Math.max(0, 1 - diff / 45);
+  $('res-percent').textContent = String(year);
+  let idx = 0;
+  const out = PHRASE.split(' ')
+    .map((w) => [...w].map((ch) => (((idx++ * 37) % 100) / 100 < ratio ? ch : '_')).join(' '))
+    .join('   ');
+  const preview = $('cipher-preview');
+  preview.textContent = out;
+  preview.classList.remove('solved');
+  if (year === 1775 && !state.solved) {
+    state.solved = true;
+    preview.textContent = 'R E C A L L E D   T O   L I F E';
+    preview.classList.add('solved');
     audio.playUnlockChime();
-    setBeat('finale');
-    setTimeout(() => {
-      showCipherStep('finale');
-    }, 420);
+    setTimeout(() => showStep('finale'), 900);
   }
 }
+$('resonance').addEventListener('input', (e) => readDial(Number(e.target.value)));
 
-resonanceSlider.addEventListener('input', (e) => {
-  updateResonanceReadout(Number(e.target.value));
+$('btn-free-explore').addEventListener('click', () => {
+  cipher.classList.add('hidden');
+  if (state.beat !== 'theatre') setBeat('theatre');
 });
-
-btnFreeExplore.addEventListener('click', () => {
-  cipherModal.classList.add('hidden');
-  setBeat('diorama');
-});
-
-btnReplayAct1.addEventListener('click', () => {
-  cipherModal.classList.add('hidden');
-  state.cipherSolved = false;
+$('btn-replay').addEventListener('click', () => {
+  cipher.classList.add('hidden');
+  state.solved = false;
   state.coupletIndex = 0;
   renderCouplet();
-  animateSeamTo(0.5, 500);
   setBeat('prologue');
 });
 
-// ==================== INITIALIZE ====================
-buildCoupletDots();
+window.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  if (!cipher.classList.contains('hidden')) cipher.classList.add('hidden');
+  else if (!vocab.classList.contains('hidden')) vocab.classList.add('hidden');
+  else closeDossier();
+});
+
+// ============================ INIT ============================
+buildTabs();
 renderCouplet();
-createAnchorButtons();
-applySeam(0.5, 0);
-updateProgressUI();
+buildAnchors();
+applySeam(1);
+updateProgress();
