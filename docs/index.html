@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <title>双城记 · A Tale of Two Cities — 第 I 幕：时代裂隙 (1775)</title>
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230a090c'/%3E%3Ccircle cx='32' cy='32' r='22' fill='none' stroke='%23c9a45c' stroke-width='2.4'/%3E%3Cpath d='M32 10 L32 54' stroke='%23c9a45c' stroke-width='2'/%3E%3Ccircle cx='32' cy='32' r='6' fill='%238c1d24' stroke='%23c9a45c' stroke-width='1.5'/%3E%3C/svg%3E"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,400;1,600&family=Noto+Serif+SC:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <script type="module" crossorigin src="./assets/index-C4PwrTzE.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-CYIx1nI4.css">
+  </head>
+  <body>
+    <div id="app" data-beat="prologue" data-lang="bilingual" data-style="oil">
+      <!-- WebGL Canvas Layer -->
+      <canvas id="stage-canvas" aria-label="双城记 3D 双世界西洋镜"></canvas>
+
+      <!-- Dynamic 3D Anchors Overlay (Projected every frame) -->
+      <div id="anchors-layer" class="anchors-layer" aria-live="polite"></div>
+
+      <!-- Golden Seam Interactive Divider -->
+      <div
+        id="seam-divider"
+        class="seam-divider"
+        role="slider"
+        aria-label="拖动时代裂隙：左展巴黎，右展伦敦"
+        aria-valuemin="5"
+        aria-valuemax="95"
+        aria-valuenow="50"
+        tabindex="0"
+      >
+        <div class="seam-line"></div>
+        <button id="seam-handle" class="seam-handle" type="button" title="左右拖动撕裂 1775 双城">
+          <span class="seam-ring"></span>
+          <span class="seam-core">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <path
+                fill="currentColor"
+                d="M8.5 7L3.5 12L8.5 17V13.5H15.5V17L20.5 12L15.5 7V10.5H8.5V7Z"
+              />
+            </svg>
+          </span>
+        </button>
+      </div>
+
+      <!-- Top Museum HUD Bar -->
+      <header class="hud-top">
+        <div class="hud-brand">
+          <div class="hud-era-badge">1775 · ACT I</div>
+          <div class="hud-titles">
+            <h1 class="hud-title-main">双城记 <span class="sep">·</span> <em>A Tale of Two Cities</em></h1>
+            <p class="hud-subtitle" id="hud-city-status">伦敦 LONDON 50% — 巴黎 PARIS 50%</p>
+          </div>
+        </div>
+
+        <nav class="hud-controls" aria-label="剧场控制栏">
+          <div class="hud-progress-pill" id="progress-pill" title="已勘验的双城宿命档案">
+            <span class="pill-dot"></span>
+            <span id="progress-text">档案 0 / 8</span>
+          </div>
+
+          <button id="btn-style" class="hud-btn" type="button" title="切换馆藏渲染风格">
+            <span class="btn-icon">✦</span>
+            <span id="btn-style-label">油彩铜刻</span>
+          </button>
+
+          <button id="btn-lang" class="hud-btn" type="button" title="切换原版英文/双语/中译">
+            <span id="btn-lang-label">中英双语</span>
+          </button>
+
+          <button id="btn-audio" class="hud-btn" type="button" aria-pressed="false" title="开启/静音 18 世纪室内乐声场">
+            <span id="btn-audio-icon">♪</span>
+            <span id="btn-audio-label">开启声场</span>
+          </button>
+        </nav>
+      </header>
+
+      <!-- City Directional Wing Tags (Subtle corner indicators) -->
+      <div class="wing-tag wing-london" id="wing-london">
+        <span class="wing-kicker">THE BEST OF TIMES · 光明与秩序</span>
+        <span class="wing-name">伦敦 · LONDON</span>
+      </div>
+      <div class="wing-tag wing-paris" id="wing-paris">
+        <span class="wing-kicker">THE WORST OF TIMES · 饥饿与狂热</span>
+        <span class="wing-name">巴黎 · PARIS</span>
+      </div>
+
+      <!-- BEAT 1: PROLOGUE OVERLAY (Opening Antithesis & Seam Tutorial) -->
+      <section id="prologue-panel" class="prologue-panel" aria-label="序章：时代裂隙">
+        <div class="prologue-card">
+          <div class="prologue-meta">
+            <span>BOOK THE FIRST · CHAPTER I · THE PERIOD</span>
+            <span class="couplet-counter" id="couplet-counter">01 / 06</span>
+          </div>
+
+          <div class="couplet-stage" id="couplet-stage">
+            <p class="couplet-en" id="couplet-en"></p>
+            <p class="couplet-zh" id="couplet-zh"></p>
+          </div>
+
+          <div class="couplet-polarity-bar">
+            <span class="pol-left" id="pol-london-label">伦敦侧：最好的时代</span>
+            <span class="pol-hint">← 左右拖动鎏金裂隙，亲手撕开 1775 年的双城镜像 →</span>
+            <span class="pol-right" id="pol-paris-label">巴黎侧：最坏的时代</span>
+          </div>
+
+          <div class="prologue-actions">
+            <div class="couplet-nav">
+              <button id="btn-prev-couplet" class="ghost-btn" type="button" aria-label="上一句">←</button>
+              <div class="couplet-dots" id="couplet-dots"></div>
+              <button id="btn-next-couplet" class="ghost-btn" type="button" aria-label="下一句">→</button>
+            </div>
+            <button id="btn-enter-diorama" class="primary-gold-btn" type="button">
+              步入 1775 立体剧场 <span class="arrow">→</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- BEAT 2: DIORAMA EXPLORATION HUD & DOSSIER DRAWER -->
+      <section id="diorama-hud" class="diorama-hud hidden" aria-label="西洋镜探索指引">
+        <div class="diorama-toolbar">
+          <button id="btn-back-prologue" class="subtle-btn" type="button">重温开篇排比</button>
+          <span class="diorama-tip" id="diorama-tip">
+            旋转舞台 · 将鎏金裂隙扫过 4 处信物，触发「伦敦 ⟷ 巴黎」宿命翻转
+          </span>
+          <button id="btn-open-cipher" class="seal-cta-btn" type="button">
+            <span class="wax-dot"></span>
+            <span id="btn-cipher-label">启封多佛密信</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- Parchment Dossier Drawer (Opens when clicking a 3D Anchor) -->
+      <aside id="dossier-drawer" class="dossier-drawer hidden" aria-label="双城宿命手札">
+        <button id="btn-close-dossier" class="drawer-close" type="button" aria-label="关闭手札">✕</button>
+        <div class="dossier-scroll">
+          <div class="dossier-header">
+            <span class="dossier-side-badge" id="dossier-side-badge">LONDON 1775</span>
+            <span class="dossier-chapter" id="dossier-chapter">CHAPTER II</span>
+          </div>
+          <h2 class="dossier-title" id="dossier-title"></h2>
+          <p class="dossier-mirror-hint" id="dossier-mirror-hint"></p>
+          <blockquote class="dossier-quote-en" id="dossier-quote-en"></blockquote>
+          <p class="dossier-quote-zh" id="dossier-quote-zh"></p>
+          <div class="dossier-notes" id="dossier-notes"></div>
+          <div class="dossier-footer-actions">
+            <button id="btn-flip-mirror" class="mirror-flip-btn" type="button">
+              拖动裂隙至此位置，翻看对岸镜像 →
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Vocabulary / Literary Gloss Popover Card -->
+      <div id="vocab-popover" class="vocab-popover hidden" role="dialog" aria-label="原著词卡批注">
+        <div class="vocab-head">
+          <div>
+            <strong id="vocab-word"></strong>
+            <span id="vocab-ipa" class="vocab-ipa"></span>
+          </div>
+          <div class="vocab-head-actions">
+            <button id="btn-speak-vocab" class="vocab-speak-btn" type="button" title="英音朗读该句">🔊</button>
+            <button id="btn-close-vocab" class="vocab-close-btn" type="button" aria-label="关闭词卡">✕</button>
+          </div>
+        </div>
+        <p id="vocab-meaning" class="vocab-meaning"></p>
+        <p id="vocab-context" class="vocab-context"></p>
+      </div>
+
+      <!-- BEAT 3: WAX SEAL CIPHER MODAL ("RECALLED TO LIFE") -->
+      <div id="cipher-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-label="多佛夜行密信破译">
+        <div class="parchment-modal">
+          <button id="btn-close-cipher" class="drawer-close dark-ink" type="button" aria-label="返回剧场">✕</button>
+
+          <div class="cipher-step" id="cipher-step-seal">
+            <p class="folio-kicker">TELLSON'S BANK · DOVER DISPATCH · NOVEMBER 1775</p>
+            <h2 class="folio-title">致洛里先生的雨夜密信</h2>
+            <p class="folio-desc">
+              马车行至射手山浓雾深处，信使杰瑞·克兰彻在泥泞中追上车队，递上一封盖着泰尔森银行猩红火漆的急件。
+            </p>
+            <div class="envelope-stage">
+              <div class="envelope-body">
+                <div class="envelope-flap"></div>
+                <p class="envelope-addr">To Mr. Jarvis Lorry,<br /><em>Passenger in the Dover Mail</em></p>
+                <button id="btn-break-seal" class="wax-seal-btn" type="button" aria-label="点击敲碎火漆封缄">
+                  <span class="wax-crest">T·B</span>
+                  <span class="wax-sub">点击敲碎火漆</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="cipher-step hidden" id="cipher-step-decode">
+            <p class="folio-kicker">CIPHER RESONANCE · 对齐双城宿命刻度</p>
+            <h2 class="folio-title">破译伦敦与巴黎的暗语</h2>
+            <p class="folio-desc">
+              拖动下方黄铜游标，将<strong>「巴黎十八年活葬」</strong>与<strong>「伦敦雨夜召唤」</strong>调谐至共振点，显影密信真迹。
+            </p>
+
+            <div class="resonance-box">
+              <div class="resonance-readout">
+                <span class="res-city">PARIS · 北塔 105 号</span>
+                <span class="res-target" id="res-percent">0% 共振</span>
+                <span class="res-city">LONDON · 泰尔森银行</span>
+              </div>
+              <div class="cipher-reveal-preview" id="cipher-reveal-preview">
+                R _ C _ L _ _ D &nbsp; T _ &nbsp; L _ F _
+              </div>
+              <input
+                id="resonance-slider"
+                class="resonance-slider"
+                type="range"
+                min="0"
+                max="100"
+                value="18"
+                aria-label="双城宿命谐振游标"
+              />
+              <p class="res-hint">提示：拨至 <strong>75%（1775 年共振刻度）</strong> 显影暗号</p>
+            </div>
+          </div>
+
+          <div class="cipher-step hidden" id="cipher-step-finale">
+            <p class="folio-kicker">ACT I FINALE FOLIO · 第一幕终章藏书票</p>
+            <div class="recalled-banner">
+              <span class="recalled-en">“RECALLED TO LIFE.”</span>
+              <span class="recalled-zh">「招回人世。」</span>
+            </div>
+            <p class="folio-desc">
+              洛里先生在多佛驿道的浓雾与灯火之间写下回信：<em>“Wait at Dover for Mam'selle.”</em>——十八年前被活埋于巴士底狱北塔的梅尼特医生，即将跨越英吉利海峡回到苏豪区女儿的金线身旁。
+            </p>
+
+            <div class="finale-summary-grid">
+              <div class="finale-stat">
+                <strong id="finale-dossier-count">0 / 8</strong>
+                <span>双城档案已勘验</span>
+              </div>
+              <div class="finale-stat">
+                <strong>ACT I / V</strong>
+                <span>第 I 幕《招回人世》完成</span>
+              </div>
+            </div>
+
+            <div class="next-acts-preview">
+              <h3>后续四幕剧场路线（全本规划）</h3>
+              <ul>
+                <li><span>第 II 幕</span><strong>红酒如血</strong> — 圣安东尼街区酒桶与德发日编织名录</li>
+                <li><span>第 III 幕</span><strong>双生镜像</strong> — 伦敦老贝利法庭：达内与卡顿的灵魂对峙</li>
+                <li><span>第 IV 幕</span><strong>105 号血书</strong> — 巴士底狱攻陷，墙缝里的陈年控诉手稿</li>
+                <li><span>第 V 幕</span><strong>断头台黎明</strong> — “我现在做的，是我一生中做过的最崇高的事。”</li>
+              </ul>
+            </div>
+
+            <div class="finale-actions">
+              <button id="btn-free-explore" class="primary-gold-btn dark-surface" type="button">
+                自由旋转观赏 1775 双城模型
+              </button>
+              <button id="btn-replay-act1" class="ghost-dark-btn" type="button">
+                重头重温第 I 幕
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Loading Curtain -->
+      <div id="loading-curtain" class="loading-curtain">
+        <div class="loading-crest">
+          <div class="crest-spinner"></div>
+          <p class="loading-en">ENGRAVING 1775 LONDON &amp; PARIS…</p>
+          <p class="loading-zh">正在铸造 1775 双城铜版西洋镜…</p>
+        </div>
+      </div>
+    </div>
+
+  </body>
+</html>

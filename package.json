@@ -1,0 +1,30 @@
+{
+  "name": "tale-of-two-cities",
+  "version": "1.0.0",
+  "private": false,
+  "license": "MIT",
+  "description": "A Tale of Two Cities (1775) — Act I: Dual-World 3D Copperplate Diorama & Interactive Bilingual Literature Theatre",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "vite build",
+    "preview": "vite preview --host",
+    "models": "/Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/build_diorama_glb.py"
+  },
+  "keywords": [
+    "threejs",
+    "webgl",
+    "diorama",
+    "copperplate",
+    "charles-dickens",
+    "a-tale-of-two-cities",
+    "interactive-literature",
+    "blender"
+  ],
+  "dependencies": {
+    "three": "^0.170.0"
+  },
+  "devDependencies": {
+    "vite": "^6.0.0"
+  }
+}
