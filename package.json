@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "vite --host",
     "build": "vite build",
+    "build:minitool": "node scripts/build-minitool.mjs",
     "preview": "vite preview --host"
   },
   "keywords": [

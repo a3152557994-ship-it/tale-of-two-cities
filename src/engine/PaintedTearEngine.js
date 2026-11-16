@@ -33,6 +33,7 @@ uniform float uScene;   // 0 prologue -> 1 theatre
 uniform float uMono;
 uniform float uDpr;
 uniform vec3 uFocus;    // screen uv + strength
+uniform float uLite;    // 0 = full quality (default); 1 = low tier: fewer octaves / layers, no grain
 
 float hash(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
 float noise(vec2 p) {
@@ -42,7 +43,7 @@ float noise(vec2 p) {
 }
 float fbm(vec2 p) {
   float v = 0.0; float a = 0.5;
-  for (int i = 0; i < 4; i++) { v += a * noise(p); p = p * 2.03 + 17.1; a *= 0.5; }
+  for (int i = 0; i < 4; i++) { if (uLite > 0.5 && i > 1) break; v += a * noise(p); p = p * 2.03 + 17.1; a *= 0.5; }
   return v;
 }
 
@@ -64,6 +65,7 @@ vec3 london(vec2 s, vec2 t) {
   rs.x += rs.y * 0.16;
   float rain = 0.0;
   for (int L = 0; L < 2; L++) {
+    if (uLite > 0.5 && L > 0) break;
     float fl = float(L);
     vec2 g = rs * vec2(150.0 + fl * 90.0, 5.0 + fl * 3.0) + vec2(fl * 13.0, -uTime * (7.0 + fl * 4.0));
     vec2 id = floor(g); vec2 fr = fract(g);
@@ -88,6 +90,7 @@ vec3 paris(vec2 s, vec2 t) {
   vec2 rs = vec2(s.x * uRes.x / uRes.y, s.y);
   float emb = 0.0;
   for (int L = 0; L < 2; L++) {
+    if (uLite > 0.5 && L > 0) break;
     float fz = float(L);
     vec2 g = rs * vec2(22.0 + fz * 14.0, 12.0 + fz * 8.0) + vec2(sin(uTime * 0.4 + rs.y * 3.0) * 0.6, uTime * (0.9 + fz * 0.5));
     vec2 id = floor(g); vec2 fr = fract(g);
@@ -168,11 +171,11 @@ void main() {
   // ---------- FINISH: canvas weave, grade, vignette, grain ----------
   vec2 px = gl_FragCoord.xy / max(uDpr, 1.0);
   float weave = (sin(px.x * 1.9) * sin(px.y * 1.9)) * 0.012 + (noise(px * 0.7) - 0.5) * 0.02;
-  col += weave;
+  col += weave * (1.0 - uLite);
   col = (col - 0.5) * 1.06 + 0.5;
   float v = smoothstep(1.0, 0.28, length((s - 0.5) * vec2(1.05, 1.15)));
   col *= 0.5 + 0.5 * v;
-  col += (hash(s * uRes + fract(uTime * 7.0) * 91.0) - 0.5) * 0.035;
+  col += (hash(s * uRes + fract(uTime * 7.0) * 91.0) - 0.5) * 0.035 * (1.0 - uLite);
   gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
 }`;
 
@@ -187,10 +190,21 @@ function loadImage(src) {
 }
 
 export class PaintedTearEngine {
-  constructor(canvas, { onFrame, onProgress } = {}) {
+  /**
+   * @param {HTMLCanvasElement} canvas
+   * @param {object} [opts]
+   * @param {object} [opts.budget]  Optional mobile GPU budget (used by the mini-tool build).
+   *   { maxDpr, maxPixels, adaptive }. When omitted the engine behaves exactly as before
+   *   (DPR ≤ 1.75, no pixel cap, no tiering, no visibility pause).
+   * @param {(reason: string) => void} [opts.onFallback]  Called once when WebGL must be
+   *   abandoned (context lost, or still too slow at the lowest tier). Budget mode only.
+   */
+  constructor(canvas, { onFrame, onProgress, budget = null, onFallback = null } = {}) {
     this.canvas = canvas;
     this.onFrame = onFrame || (() => {});
     this.onProgress = onProgress || (() => {});
+    this.budget = budget;
+    this.onFallback = onFallback || (() => {});
     const opts = { antialias: false, alpha: false, premultipliedAlpha: false, powerPreference: 'high-performance' };
     this.gl = canvas.getContext('webgl', opts) || canvas.getContext('experimental-webgl', opts);
     if (!this.gl) throw new Error('WebGL unavailable');
@@ -210,6 +224,18 @@ export class PaintedTearEngine {
     this.imgAspect = 1.5;
     this.proAspect = 1.5;
     this.start = performance.now();
+    this.dead = false;
+
+    if (budget) {
+      // Tier 0 = default budget, 1 = low, 2 = lowest (lite shader + 30 fps cap).
+      this.tiers = [
+        { dpr: budget.maxDpr || 1.5, px: budget.maxPixels || 2e6, lite: 0, skip: false },
+        { dpr: 1, px: 1e6, lite: 0, skip: false },
+        { dpr: 0.75, px: 1e6, lite: 1, skip: true }
+      ];
+      this.tier = 0;
+      this._stat = { last: 0, acc: 0, n: 0, since: performance.now() + 2500, frame: 0 };
+    }
 
     this._initGL();
     this._resize = this._resize.bind(this);
@@ -220,11 +246,33 @@ export class PaintedTearEngine {
     }
     window.addEventListener('pointermove', (e) => {
       if (e.pointerType === 'touch') return;
-      this.mouseTarget = [(e.clientX / window.innerWidth) * 2 - 1, (e.clientY / window.innerHeight) * 2 - 1];
+      this.mouseTarget[0] = (e.clientX / window.innerWidth) * 2 - 1;
+      this.mouseTarget[1] = (e.clientY / window.innerHeight) * 2 - 1;
     });
+    if (budget) {
+      this._onLost = (e) => {
+        e.preventDefault();
+        this._abandon('contextlost', false);
+      };
+      canvas.addEventListener('webglcontextlost', this._onLost, false);
+      this._onVis = () => {
+        if (this.dead) return;
+        if (document.hidden) {
+          cancelAnimationFrame(this._raf);
+          this._raf = 0;
+        } else if (!this._raf) {
+          this._stat.last = 0;
+          this._stat.acc = 0;
+          this._stat.n = 0;
+          this._stat.since = performance.now() + 1000;
+          this._raf = requestAnimationFrame(this._loop);
+        }
+      };
+      document.addEventListener('visibilitychange', this._onVis);
+    }
     this._resize();
     this._loop = this._loop.bind(this);
-    requestAnimationFrame(this._loop);
+    this._raf = requestAnimationFrame(this._loop);
   }
 
   _initGL() {
@@ -252,7 +300,7 @@ export class PaintedTearEngine {
     gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
 
     this.u = {};
-    ['uLondon', 'uParis', 'uPrologue', 'uRes', 'uK', 'uK0', 'uOffset', 'uMouse', 'uTime', 'uSeam', 'uVel', 'uScene', 'uMono', 'uDpr', 'uFocus'].forEach(
+    ['uLondon', 'uParis', 'uPrologue', 'uRes', 'uK', 'uK0', 'uOffset', 'uMouse', 'uTime', 'uSeam', 'uVel', 'uScene', 'uMono', 'uDpr', 'uFocus', 'uLite'].forEach(
       (n) => (this.u[n] = gl.getUniformLocation(prog, n))
     );
     this.textures = {};
@@ -278,6 +326,7 @@ export class PaintedTearEngine {
     await Promise.all(
       keys.map(async (key) => {
         const img = await loadImage(sources[key]);
+        if (this.dead) return;
         const gl = this.gl;
         const { tex, unit } = this.textures[key];
         gl.activeTexture(gl.TEXTURE0 + unit);
@@ -292,7 +341,14 @@ export class PaintedTearEngine {
   }
 
   _resize() {
-    const dpr = Math.min(window.devicePixelRatio || 1, 1.75);
+    let dpr = Math.min(window.devicePixelRatio || 1, 1.75);
+    if (this.budget) {
+      // Budget mode: cap DPR per tier, then cap total drawing-buffer pixels.
+      const tier = this.tiers[this.tier];
+      const area = Math.max(1, this.canvas.clientWidth * this.canvas.clientHeight);
+      dpr = Math.min(window.devicePixelRatio || 1, tier.dpr);
+      if (area * dpr * dpr > tier.px) dpr = Math.sqrt(tier.px / area);
+    }
     const w = Math.max(1, Math.round(this.canvas.clientWidth * dpr));
     const h = Math.max(1, Math.round(this.canvas.clientHeight * dpr));
     if (this.canvas.width !== w || this.canvas.height !== h) {
@@ -300,6 +356,37 @@ export class PaintedTearEngine {
       this.canvas.height = h;
     }
     this.dpr = dpr;
+  }
+
+  /** Budget mode: step down one quality tier, or abandon WebGL at the lowest tier. */
+  _degrade(now) {
+    if (this.tier < this.tiers.length - 1) {
+      this.tier += 1;
+      this._stat.since = now + 1500;
+      this._resize();
+    } else {
+      this._abandon('slow', true);
+    }
+  }
+
+  /** Stop rendering for good, release listeners (and the GL context) and notify once. */
+  _abandon(reason, loseContext) {
+    if (this.dead) return;
+    this.dead = true;
+    cancelAnimationFrame(this._raf);
+    window.removeEventListener('resize', this._resize);
+    if (this._ro) this._ro.disconnect();
+    if (this._onVis) document.removeEventListener('visibilitychange', this._onVis);
+    if (this._onLost) this.canvas.removeEventListener('webglcontextlost', this._onLost, false);
+    if (loseContext) {
+      const ext = this.gl.getExtension('WEBGL_lose_context');
+      if (ext) ext.loseContext();
+    }
+    this.onFallback(reason);
+  }
+
+  dispose() {
+    this._abandon('dispose', true);
   }
 
   _fit(aspectImg) {
@@ -362,20 +449,51 @@ export class PaintedTearEngine {
   }
 
   _loop(now) {
+    if (this.dead) return;
     const gl = this.gl;
     const t = (now - this.start) / 1000;
     const ease = (a, b, f) => a + (b - a) * f;
     this.scene = ease(this.scene, this.sceneTarget, 0.022);
     if (Math.abs(this.scene - this.sceneTarget) < 0.0005) this.scene = this.sceneTarget;
     this.mono = ease(this.mono, this.monoTarget, 0.08);
-    this.mouse = [ease(this.mouse[0], this.mouseTarget[0], 0.045), ease(this.mouse[1], this.mouseTarget[1], 0.045)];
+    this.mouse[0] = ease(this.mouse[0], this.mouseTarget[0], 0.045);
+    this.mouse[1] = ease(this.mouse[1], this.mouseTarget[1], 0.045);
     const lim = this.panLimit();
     this.panTarget = Math.max(-lim, Math.min(lim, this.panTarget));
     this.pan = ease(this.pan, this.panTarget, 0.12);
-    this.focus = this.focus.map((v, i) => ease(v, this.focusTarget[i], i === 2 ? 0.08 : 0.25));
+    for (let i = 0; i < 3; i++) this.focus[i] = ease(this.focus[i], this.focusTarget[i], i === 2 ? 0.08 : 0.25);
     this.vel *= 0.9;
 
     this.onFrame(t);
+
+    if (this.budget) {
+      // Frame-time driven tiering (no device lists): sustained < ~24 fps steps down a tier.
+      const st = this._stat;
+      if (st.last && now > st.since) {
+        const dt = now - st.last;
+        if (dt < 250) {
+          st.acc += dt;
+          st.n += 1;
+        }
+        if (st.n >= 90) {
+          const avg = st.acc / st.n;
+          st.acc = 0;
+          st.n = 0;
+          if (avg > 42 && this.budget.adaptive) {
+            this._degrade(now);
+            if (this.dead) return;
+          }
+        }
+      }
+      st.last = now;
+      const tier = this.tiers[this.tier];
+      st.frame += 1;
+      if (tier.skip && st.frame % 2) {
+        this._raf = requestAnimationFrame(this._loop);
+        return;
+      }
+      gl.uniform1f(this.u.uLite, tier.lite);
+    }
 
     const k = this._fit(this.imgAspect);
     const k0 = this._fit(this.proAspect);
@@ -393,6 +511,6 @@ export class PaintedTearEngine {
     gl.uniform1f(this.u.uDpr, this.dpr);
     gl.uniform3f(this.u.uFocus, this.focus[0], this.focus[1], this.focus[2]);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-    requestAnimationFrame(this._loop);
+    this._raf = requestAnimationFrame(this._loop);
   }
 }

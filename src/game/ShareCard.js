@@ -3,6 +3,9 @@
  */
 import QRCode from 'qrcode';
 
+// Mini-tool build: no external-URL QR / no CORS-mode image loads (same-origin package files).
+const IS_MINITOOL = import.meta.env.VITE_TARGET === 'minitool';
+
 const W = 1080;
 const H = 1440;
 const ZH = '"Songti SC", "STSong", "Noto Serif SC", "Source Han Serif SC", serif';
@@ -11,7 +14,7 @@ const EN = '"Cormorant Garamond", "Iowan Old Style", Georgia, serif';
 function loadImg(src) {
   return new Promise((res, rej) => {
     const i = new Image();
-    i.crossOrigin = 'anonymous';
+    if (!IS_MINITOOL) i.crossOrigin = 'anonymous';
     i.onload = () => res(i);
     i.onerror = rej;
     i.src = src;
@@ -170,17 +173,47 @@ export async function renderShareCard({ ending, cityImage, portrait, url, lang =
       ly += 40;
     });
 
-  // QR
-  const qr = await QRCode.toDataURL(url, { margin: 1, width: 220, color: { dark: '#2b2722', light: '#efe7d3' } });
-  const q = await loadImg(qr);
-  ctx.drawImage(q, W - 330, py + 40, 220, 220);
+  if (IS_MINITOOL) {
+    // Wax seal in place of the website QR code (no external link inside the mini-tool).
+    const sx = W - 220;
+    const sy = py + 150;
+    ctx.fillStyle = '#8e2a22';
+    ctx.beginPath();
+    ctx.arc(sx, sy, 96, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(243,234,216,0.55)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(sx, sy, 80, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = '#f3ead8';
+    ctx.textAlign = 'center';
+    ctx.font = `600 50px ${EN}`;
+    ctx.fillText('T·C', sx, sy + 8);
+    ctx.font = `600 20px ${ZH}`;
+    ctx.fillText(String(ending.year || ''), sx, sy + 46);
+    ctx.textAlign = 'left';
+  } else {
+    // QR
+    const qr = await QRCode.toDataURL(url, { margin: 1, width: 220, color: { dark: '#2b2722', light: '#efe7d3' } });
+    const q = await loadImg(qr);
+    ctx.drawImage(q, W - 330, py + 40, 220, 220);
+  }
 
   // Footer
   ctx.fillStyle = '#a5b1b9';
   ctx.font = `400 26px ${ZH}`;
   ctx.textAlign = 'center';
-  ctx.fillText(en ? 'Scan to see which city you would tear toward' : '扫码看看：每一张牌，你会撕向哪座城？', W / 2, H - 72);
+  const footer = IS_MINITOOL
+    ? en
+      ? 'Every card: London, or Paris?'
+      : '这是最好的时代，也是最坏的时代——每一张牌，你撕向哪座城？'
+    : en
+      ? 'Scan to see which city you would tear toward'
+      : '扫码看看：每一张牌，你会撕向哪座城？';
+  ctx.fillText(footer, W / 2, H - 72);
   ctx.textAlign = 'left';
 
-  return c.toDataURL('image/png');
+  // Mini-tool: JPEG keeps the base64 handed to writeTempFile / the album small.
+  return IS_MINITOOL ? c.toDataURL('image/jpeg', 0.92) : c.toDataURL('image/png');
 }

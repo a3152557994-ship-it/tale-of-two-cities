@@ -10,8 +10,15 @@ import { track } from './game/track.js';
 import londonUrl from './assets/london-street.jpg';
 import parisUrl from './assets/paris-street.jpg';
 import prologueUrl from './assets/prologue-channel.jpg';
+import { createFallbackStage } from './minitool/FallbackStage.js';
+import * as mt from './minitool/platform.js';
 
-const GAME_URL = 'https://a3152557994-ship-it.github.io/tale-of-two-cities/';
+// Xiaohongshu mini-tool build (vite.minitool.config.js). Constant-folded: the website
+// build drops every `if (IS_MINITOOL)` branch and the minitool modules above.
+const IS_MINITOOL = import.meta.env.VITE_TARGET === 'minitool';
+// The website link is never embedded in the mini-tool package (no outbound links there).
+const GAME_URL = IS_MINITOOL ? '' : 'https://a3152557994-ship-it.github.io/tale-of-two-cities/';
+
 const PORTRAITS = Object.fromEntries(
   Object.entries(import.meta.glob('./assets/portraits/*.jpg', { eager: true, import: 'default' })).map(([k, v]) => [
     k.replace(/^.*portrait-(.+)\.jpg$/, '$1'),
@@ -34,6 +41,7 @@ mountOrnaments();
 // ---------------- persistence ----------------
 const STORE = 'ttc.album.v1';
 const album = (() => {
+  if (IS_MINITOOL) return { endings: [], personas: [], runs: 0, best: 0 }; // filled async by Storage API
   try {
     return { endings: [], personas: [], runs: 0, best: 0, ...JSON.parse(localStorage.getItem(STORE) || '{}') };
   } catch {
@@ -41,6 +49,10 @@ const album = (() => {
   }
 })();
 const saveAlbum = () => {
+  if (IS_MINITOOL) {
+    mt.setLocalData(STORE, album); // resolves false on failure; album stays in memory
+    return;
+  }
   try {
     localStorage.setItem(STORE, JSON.stringify(album));
   } catch {
@@ -65,7 +77,9 @@ const L = (zh, en) => (state.lang === 'en' && en ? en : zh);
 
 // ---------------- engine ----------------
 let engine = null;
-try {
+if (IS_MINITOOL) {
+  bootMiniToolStage();
+} else try {
   engine = new PaintedTearEngine(stage.querySelector('canvas'), {
     onFrame: stepSeam,
     onProgress: (p) => ($('curtain-bar').style.width = `${Math.round(p * 100)}%`)
@@ -79,6 +93,52 @@ try {
   console.error(e);
   $('curtain').classList.add('gone');
   stage.style.background = `center / cover no-repeat url(${prologueUrl})`;
+}
+
+// Mini-tool: GPU budget + tiering, two-phase painting load with retry, DOM fallback stage.
+function useFallbackStage(seamNow = 0.5) {
+  if (engine && engine.isFallback) return;
+  engine = createFallbackStage(stage, { onFrame: stepSeam });
+  engine.setSeam(seamNow);
+  engine.setScene(state.beat === 'prologue' ? 0 : 1);
+  engine.setMono(state.mono);
+  engine.load({ london: londonUrl, paris: parisUrl, prologue: prologueUrl });
+  $('curtain').classList.add('gone');
+}
+
+function loadPaintings(sources, tries = 2) {
+  const target = engine;
+  return target.load(sources).catch((err) => {
+    if (tries <= 1 || engine !== target) throw err;
+    return new Promise((r) => setTimeout(r, 1200)).then(() => loadPaintings(sources, tries - 1));
+  });
+}
+
+function loadTheatre() {
+  loadPaintings({ london: londonUrl, paris: parisUrl }).catch(() => {
+    if (engine && engine.isFallback) return; // DOM stage shows its own painted base colours
+    mt.showNotice('部分油画没能装裱好', '重试', loadTheatre);
+  });
+}
+
+function bootMiniToolStage() {
+  try {
+    engine = new PaintedTearEngine(stage.querySelector('canvas'), {
+      onFrame: stepSeam,
+      onProgress: (p) => ($('curtain-bar').style.width = `${Math.round(p * 100)}%`),
+      budget: { maxDpr: 1.5, maxPixels: 2e6, adaptive: true },
+      onFallback: () => useFallbackStage(seam)
+    });
+    engine.setSeam(0.5);
+    // First screen only needs the prologue painting; the two city paintings follow.
+    loadPaintings({ prologue: prologueUrl })
+      .catch(() => mt.showNotice('扉页油画没能装裱好', '重试', () => loadPaintings({ prologue: prologueUrl }).catch(() => {})))
+      .then(() => setTimeout(() => $('curtain').classList.add('gone'), 300));
+    loadTheatre();
+  } catch (e) {
+    console.error(e);
+    useFallbackStage(0.5);
+  }
 }
 
 // Seam: eases toward a target; dragging sets it directly.
@@ -377,7 +437,10 @@ $('btn-share').addEventListener('click', async () => {
       lang: state.lang
     });
     $('share-img').src = url;
-    $('share-download').href = url;
+    if (IS_MINITOOL) {
+      state.shareUrl = url;
+      $('share-tip').textContent = L('点「保存到相册」，把结局卡存进手机', 'Tap “Save to album” to keep this card');
+    } else $('share-download').href = url;
     $('share').classList.remove('hidden');
     track('share_card', { ending: e.key });
   } catch (err) {
@@ -387,17 +450,39 @@ $('btn-share').addEventListener('click', async () => {
   btn.textContent = L('保存结局卡', 'Save fate card');
 });
 $('btn-close-share').addEventListener('click', () => $('share').classList.add('hidden'));
-$('share-download').addEventListener('click', () => track('share_download', {}));
-$('btn-copy-link').addEventListener('click', async () => {
-  const text = `这是最好的时代，也是最坏的时代——每一张牌，你撕向伦敦还是巴黎？${GAME_URL}`;
-  try {
-    await navigator.clipboard.writeText(text);
-    $('btn-copy-link').textContent = '已复制';
-  } catch {
-    prompt('复制这段链接：', text);
-  }
-  track('copy_link', {});
-});
+if (IS_MINITOOL) {
+  // <a download> and the clipboard are blocked in the container: save via the album API,
+  // and share the mini-tool card instead of copying a web link (button shown only if supported).
+  $('share-download').addEventListener('click', async () => {
+    const btn = $('share-download');
+    if (btn.disabled || !state.shareUrl) return;
+    btn.disabled = true;
+    const r = await mt.saveImageToAlbum(state.shareUrl);
+    $('share-tip').textContent = r.ok
+      ? L('已保存到系统相册', 'Saved to your photo album')
+      : r.reason === 'unsupported'
+        ? L('请在新版小红书 App 内打开后保存', 'Open in the latest Xiaohongshu app to save')
+        : L('没能保存，请允许访问相册后再试', 'Could not save — allow photo access and retry');
+    btn.disabled = false;
+  });
+  mt.canShareCard().then((ok) => $('btn-copy-link').classList.toggle('hidden', !ok));
+  $('btn-copy-link').addEventListener('click', async () => {
+    const r = await mt.shareCard();
+    if (!r.ok && r.errCode === 15503) $('share-tip').textContent = L('今天分享次数已达上限', 'Daily share limit reached');
+  });
+} else {
+  $('share-download').addEventListener('click', () => track('share_download', {}));
+  $('btn-copy-link').addEventListener('click', async () => {
+    const text = `这是最好的时代，也是最坏的时代——每一张牌，你撕向伦敦还是巴黎？${GAME_URL}`;
+    try {
+      await navigator.clipboard.writeText(text);
+      $('btn-copy-link').textContent = '已复制';
+    } catch {
+      prompt('复制这段链接：', text);
+    }
+    track('copy_link', {});
+  });
+}
 
 // ---------------- album ----------------
 function updateAlbumCount() {
@@ -509,6 +594,7 @@ document.addEventListener('click', (e) => {
 });
 $('btn-close-vocab').addEventListener('click', () => vocab.classList.add('hidden'));
 $('btn-speak').addEventListener('click', () => audio.speakEnglishSnippet(speakText));
+if (IS_MINITOOL && !('speechSynthesis' in window)) $('btn-speak').classList.add('hidden');
 
 // ---------------- tools ----------------
 $('btn-lang').addEventListener('click', () => {
@@ -553,3 +639,23 @@ renderMeters();
 renderCouplet();
 updateAlbumCount();
 track('visit', { returning: album.runs > 0 });
+
+if (IS_MINITOOL) {
+  // Album from Storage API (9.46+) or browser storage; merge in case a run already ended.
+  mt.getLocalData(STORE).then((d) => {
+    if (!d || typeof d !== 'object') return;
+    const union = (a, b) => a.concat((Array.isArray(b) ? b : []).filter((x) => a.indexOf(x) < 0));
+    album.endings = union(album.endings, d.endings);
+    album.personas = union(album.personas, d.personas);
+    album.runs += Number(d.runs) || 0;
+    album.best = Math.max(album.best, Number(d.best) || 0);
+    updateAlbumCount();
+  });
+  // Pause Web Audio while the container is hidden; resume only if the player had it on.
+  document.addEventListener('visibilitychange', () => {
+    const ctx = audio.ctx;
+    if (!ctx) return;
+    if (document.hidden) ctx.suspend().catch(() => {});
+    else if (audio.enabled) ctx.resume().catch(() => {});
+  });
+}
