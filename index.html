@@ -2,10 +2,12 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
     <meta name="theme-color" content="#0d1620" />
-    <meta name="description" content="双城记 · 第一卷《招回人世》。1775 年的伦敦与巴黎画在同一幅油画里——亲手撕开时代裂隙。It was the best of times, it was the worst of times." />
-    <title>双城记 · A Tale of Two Cities — 第一卷 招回人世</title>
+    <meta name="description" content="这是最好的时代，也是最坏的时代——每一张牌，你撕向伦敦还是巴黎？狄更斯《双城记》油画撕卡生存游戏，20 种结局、7 种人格。" />
+    <meta property="og:title" content="双城记 · 撕裂年代" />
+    <meta property="og:description" content="这是最好的时代，也是最坏的时代——每一张牌，你撕向伦敦还是巴黎？" />
+    <title>双城记 · 撕裂年代 — 这是最好的时代，也是最坏的时代</title>
     <link
       rel="icon"
       type="image/svg+xml"
@@ -19,7 +21,7 @@
     />
   </head>
   <body>
-    <div id="app" data-beat="prologue" data-lang="bilingual">
+    <div id="app" data-beat="prologue" data-lang="zh">
       <!-- ============ TOP BAR ============ -->
       <header class="topbar">
         <a class="wordmark" href="#" id="home-link" aria-label="回到扉页">
@@ -30,132 +32,158 @@
           </span>
         </a>
         <div class="book-mark" aria-hidden="true">
-          <span class="book-roman">Book the First</span>
+          <span class="book-roman">It was the best of times</span>
           <span class="book-dot">◆</span>
-          <span class="book-zh">第一卷 · 招回人世</span>
+          <span class="book-zh">撕 裂 年 代</span>
         </div>
-        <nav class="tools" aria-label="剧场工具">
-          <span class="tool tool-count" id="progress-pill" title="已翻阅的双城档案">档案 <b id="progress-text">0</b><i>/8</i></span>
-          <button class="tool" id="btn-lang" type="button">中英对照</button>
+        <nav class="tools" aria-label="工具">
+          <button class="tool" id="btn-album" type="button">结局册 <b id="album-count">0</b><i id="album-total">/0</i></button>
+          <button class="tool" id="btn-lang" type="button">中文</button>
           <button class="tool" id="btn-style" type="button" aria-pressed="false">铜版画</button>
           <button class="tool" id="btn-audio" type="button" aria-pressed="false">声音关</button>
         </nav>
       </header>
 
-      <!-- ============ MAIN ============ -->
-      <main class="layout">
-        <section class="stage" id="stage" aria-label="1775 双城油画">
-          <canvas id="stage-canvas" aria-hidden="true"></canvas>
-          <div class="stage-shade"></div>
-          <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+      <!-- ============ STAGE ============ -->
+      <main class="stage" id="stage">
+        <canvas id="stage-canvas" aria-hidden="true"></canvas>
+        <div class="stage-shade"></div>
+        <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
 
-          <!-- City wings -->
-          <div class="wing wing-london" id="wing-london">
-            <span class="wing-kicker">It was the best of times</span>
-            <strong>伦敦 <em>London</em></strong>
-            <span class="wing-meter"><i id="meter-london"></i></span>
-          </div>
-          <div class="wing wing-paris" id="wing-paris">
-            <span class="wing-kicker">it was the worst of times</span>
-            <strong>巴黎 <em>Paris</em></strong>
-            <span class="wing-meter"><i id="meter-paris"></i></span>
+        <!-- ============ GAME ============ -->
+        <section class="game" id="game" aria-label="撕卡">
+          <div class="hud">
+            <div class="meters" id="meters"></div>
+            <div class="era">
+              <span class="era-year" id="era-year">1775</span>
+              <span class="era-book" id="era-book">第一卷 · 招回人世</span>
+              <span class="era-track"><i id="era-progress"></i></span>
+            </div>
           </div>
 
-          <!-- Painted anchors -->
-          <div id="anchors-layer" class="anchors-layer"></div>
+          <div class="table">
+            <div class="prompt" id="prompt">
+              <p class="prompt-who"><b id="who-name"></b><span id="who-role"></span><em class="city-tag" id="city-tag"></em></p>
+              <p class="prompt-text" id="prompt-text"></p>
+            </div>
 
-          <!-- Seam (shader draws the burning line; this is the wax-seal grip) -->
-          <div id="seam" class="seam" role="slider" tabindex="0" aria-label="拖动时代裂隙：左为伦敦，右为巴黎" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50">
-            <button id="seam-handle" class="seam-seal" type="button" title="按住左右拖动，撕开 1775 双城">
-              <span class="seal-wax"></span>
-              <span class="seal-glyph">
-                <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M8.4 6.5 3 12l5.4 5.5v-3.8h7.2v3.8L21 12l-5.4-5.5v3.8H8.4z" /></svg>
-              </span>
-            </button>
-          </div>
-
-          <div class="stage-caption" id="stage-caption">
-            <span>◆ <span id="caption-text">按住中央封蜡左右拖动，撕开同一条街的两个世界；点选画中信物翻阅档案。</span></span>
-            <span class="caption-meta" id="caption-meta">LONDON 50 · PARIS 50</span>
-          </div>
-
-          <!-- ============ PROLOGUE ============ -->
-          <section id="prologue" class="prologue" aria-label="扉页">
-            <div class="prologue-inner">
-              <p class="pro-kicker">London &amp; Paris · MDCCLXXV</p>
-              <h1 class="pro-title">
-                <span class="pro-zh">双城记</span>
-                <span class="pro-en">A Tale of Two Cities</span>
-              </h1>
-              <p class="pro-by">Charles Dickens, 1859 · 第一卷《招回人世》互动画本</p>
-
-              <div class="couplet" id="couplet">
-                <div class="couplet-head">
-                  <span>Book I · Chapter I · <em>The Period</em></span>
-                  <span id="couplet-counter">I / VI</span>
-                </div>
-                <p class="couplet-en" id="couplet-en"></p>
-                <p class="couplet-zh" id="couplet-zh"></p>
-                <div class="couplet-nav">
-                  <button id="btn-prev-couplet" class="nav-arrow" type="button" aria-label="上一句">‹</button>
-                  <div class="couplet-tabs" id="couplet-tabs"></div>
-                  <button id="btn-next-couplet" class="nav-arrow" type="button" aria-label="下一句">›</button>
-                </div>
-              </div>
-
-              <div class="pro-actions">
-                <button id="btn-enter" class="btn-primary" type="button">撕开 1775 年的裂隙 <span aria-hidden="true">→</span></button>
-                <button id="btn-pro-audio" class="btn-secondary" type="button">开启室内乐</button>
+            <div class="deck" id="deck">
+              <span class="deck-shadow"></span>
+              <span class="deck-under"></span>
+              <div class="card" id="card" tabindex="0" aria-label="向左或向右拖动卡牌做出选择">
+                <div class="card-art" id="card-art"></div>
+                <div class="card-choice left" id="choice-left"></div>
+                <div class="card-choice right" id="choice-right"></div>
+                <div class="card-plate"><span id="card-name"></span></div>
               </div>
             </div>
 
-            <!-- Tellson's bank-note style card -->
-            <aside class="pass-card" aria-hidden="true">
-              <div class="pass-border">
-                <span class="pass-rosette" data-ornament="rosette-dense" data-stroke="#4c5c52"></span>
-                <span class="pass-bank">Tellson &amp; Co. · London &amp; Paris</span>
-                <strong class="pass-words">Recalled to Life</strong>
-                <span class="pass-zh">招 回 人 世</span>
-                <span class="pass-foot">Dover Mail · Nov. 1775 · No. 105</span>
-              </div>
-            </aside>
-          </section>
+            <div class="sides" aria-hidden="true">
+              <span class="side-l">← 撕向伦敦</span>
+              <span class="side-step" id="step-count">第 1 张</span>
+              <span class="side-r">撕向巴黎 →</span>
+            </div>
+          </div>
+
+          <p class="after" id="after"></p>
         </section>
 
-        <!-- ============ DOSSIER (parchment ledger) ============ -->
-        <aside id="dossier" class="dossier" aria-label="双城档案" aria-hidden="true">
-          <button id="btn-close-dossier" class="dossier-close" type="button" aria-label="合上档案">×</button>
-          <div class="dossier-scroll">
-            <figure class="dossier-plate" id="dossier-plate">
-              <span class="plate-badge" id="dossier-badge">LONDON · 1775</span>
-            </figure>
-            <p class="dossier-chapter" id="dossier-chapter"></p>
-            <h2 class="dossier-title" id="dossier-title"></h2>
-            <div class="double-rule"></div>
-            <blockquote class="dossier-en" id="dossier-en"></blockquote>
-            <p class="dossier-zh" id="dossier-zh"></p>
-            <div class="dossier-note">
-              <span class="note-label">注 · Annotation</span>
-              <p id="dossier-notes"></p>
+        <!-- ============ PROLOGUE ============ -->
+        <section id="prologue" class="prologue" aria-label="扉页">
+          <div class="prologue-inner">
+            <p class="pro-kicker">London &amp; Paris · MDCCLXXV — MDCCXCIII</p>
+            <h1 class="pro-title">
+              <span class="pro-zh">双城记</span>
+              <span class="pro-en">撕裂年代 · Torn Between Two Cities</span>
+            </h1>
+            <p class="pro-by">你是泰尔森银行的小职员，往返于伦敦与巴黎。每一张牌，向左撕是伦敦，向右撕是巴黎——活到 1793 年。</p>
+
+            <div class="couplet" id="couplet">
+              <div class="couplet-head">
+                <span>Charles Dickens, 1859 · <em>The Period</em></span>
+                <span id="couplet-counter">I / VI</span>
+              </div>
+              <p class="couplet-en" id="couplet-en"></p>
+              <p class="couplet-zh" id="couplet-zh"></p>
+              <div class="couplet-nav">
+                <button id="btn-prev-couplet" class="nav-arrow" type="button" aria-label="上一句">‹</button>
+                <div class="couplet-tabs" id="couplet-tabs"></div>
+                <button id="btn-next-couplet" class="nav-arrow" type="button" aria-label="下一句">›</button>
+              </div>
             </div>
-            <p class="dossier-mirror" id="dossier-mirror"></p>
-            <button id="btn-flip" class="btn-ledger" type="button"></button>
+
+            <div class="pro-actions">
+              <button id="btn-enter" class="btn-primary" type="button">撕开 1775 年 <span aria-hidden="true">→</span></button>
+              <button id="btn-pro-audio" class="btn-secondary" type="button">开启室内乐</button>
+            </div>
           </div>
-        </aside>
+
+          <aside class="pass-card" aria-hidden="true">
+            <div class="pass-border">
+              <span class="pass-rosette" data-ornament="rosette-dense" data-stroke="#4c5c52"></span>
+              <span class="pass-bank">Tellson &amp; Co. · London &amp; Paris</span>
+              <strong class="pass-words">Recalled to Life</strong>
+              <span class="pass-zh">招 回 人 世</span>
+              <span class="pass-foot">Dover Mail · Nov. 1775 · No. 105</span>
+            </div>
+          </aside>
+        </section>
+
+        <!-- ============ ENDING ============ -->
+        <section id="ending" class="ending hidden" aria-label="结局">
+          <div class="ending-inner">
+            <p class="ending-kicker" id="ending-kicker"></p>
+            <h2 class="ending-title" id="ending-title"></h2>
+            <p class="ending-death" id="ending-death"></p>
+            <p class="ending-epitaph" id="ending-epitaph"></p>
+            <div class="persona">
+              <span class="persona-art" id="persona-art"></span>
+              <div>
+                <span class="persona-label">你的人格</span>
+                <strong class="persona-name" id="persona-name"></strong>
+                <p class="persona-line" id="persona-line"></p>
+                <p class="persona-quote" id="persona-quote"></p>
+              </div>
+            </div>
+            <div class="ending-actions">
+              <button class="btn-primary" id="btn-share" type="button">保存结局卡</button>
+              <button class="btn-secondary" id="btn-again" type="button">再撕一局</button>
+              <button class="text-btn" id="btn-rewind" type="button">命运回溯 · 撤回最后一张</button>
+            </div>
+          </div>
+        </section>
       </main>
 
-      <!-- ============ FOOTER ============ -->
-      <footer class="footer">
-        <span class="footer-quote"><em>“It was the best of times, it was the worst of times.”</em></span>
-        <div class="footer-actions">
-          <button class="text-btn" id="btn-back-prologue" type="button">回到扉页</button>
-          <button class="btn-seal" id="btn-open-cipher" type="button">
-            <span class="wax-dot"></span><span id="btn-cipher-label">启封多佛密信</span>
-          </button>
+      <!-- ============ SHARE ============ -->
+      <div id="share" class="sheet-backdrop hidden" role="dialog" aria-modal="true" aria-label="结局卡">
+        <div class="share-box">
+          <button class="sheet-close" id="btn-close-share" type="button" aria-label="关闭">×</button>
+          <img id="share-img" alt="结局卡" />
+          <p class="share-tip" id="share-tip">手机长按图片保存，电脑点下方按钮下载</p>
+          <div class="share-actions">
+            <a class="btn-primary" id="share-download" download="双城记-结局卡.png">下载结局卡</a>
+            <button class="btn-secondary dark" id="btn-copy-link" type="button">复制游戏链接</button>
+          </div>
         </div>
-      </footer>
+      </div>
 
-      <!-- ============ VOCAB CARD ============ -->
+      <!-- ============ ALBUM ============ -->
+      <div id="album" class="sheet-backdrop hidden" role="dialog" aria-modal="true" aria-label="结局册">
+        <div class="letter album-box">
+          <span class="letter-rule top" data-ornament="wave"></span>
+          <span class="letter-rule bottom" data-ornament="wave"></span>
+          <button class="letter-close" id="btn-close-album" type="button" aria-label="关闭">×</button>
+          <p class="letter-kicker">Tellson's Ledger · 命运账簿</p>
+          <h2 class="letter-title">结局册</h2>
+          <p class="letter-desc" id="album-desc"></p>
+          <h3 class="album-h">结局</h3>
+          <div class="album-grid" id="album-endings"></div>
+          <h3 class="album-h">人格</h3>
+          <div class="album-grid personas" id="album-personas"></div>
+        </div>
+      </div>
+
+      <!-- ============ VOCAB ============ -->
       <div id="vocab" class="vocab hidden" role="dialog" aria-label="原著词注">
         <div class="vocab-head">
           <div><strong id="vocab-word"></strong><span id="vocab-ipa" class="vocab-ipa"></span></div>
@@ -168,77 +196,11 @@
         <p id="vocab-context" class="vocab-context"></p>
       </div>
 
-      <!-- ============ CIPHER LETTER ============ -->
-      <div id="cipher" class="cipher-backdrop hidden" role="dialog" aria-modal="true" aria-label="多佛密信">
-        <div class="letter">
-          <span class="letter-rule top" data-ornament="wave"></span>
-          <span class="letter-rule bottom" data-ornament="wave"></span>
-          <span class="letter-corner c1" data-ornament="rosette-dense"></span>
-          <span class="letter-corner c2" data-ornament="rosette-dense"></span>
-          <span class="letter-corner c3" data-ornament="rosette-dense"></span>
-          <span class="letter-corner c4" data-ornament="rosette-dense"></span>
-          <button id="btn-close-cipher" class="letter-close" type="button" aria-label="收起密信">×</button>
-
-          <div class="letter-step" id="step-seal">
-            <p class="letter-kicker">Tellson's Bank · Dover Dispatch · November 1775</p>
-            <h2 class="letter-title">致洛里先生的雨夜密信</h2>
-            <p class="letter-desc">驿车停在射手山的浓雾里。信使杰瑞·克兰彻从泥泞中追上来，递上一封盖着泰尔森银行猩红火漆的急件。</p>
-            <div class="envelope">
-              <span class="envelope-flap"></span>
-              <p class="envelope-addr">To Mr. Jarvis Lorry,<br /><em>Passenger in the Dover Mail</em></p>
-              <button id="btn-break-seal" class="wax-seal" type="button" aria-label="敲碎火漆">
-                <span class="wax-crest">T·B</span>
-              </button>
-              <span class="envelope-hint">点击火漆启封</span>
-            </div>
-          </div>
-
-          <div class="letter-step hidden" id="step-decode">
-            <p class="letter-kicker">Cipher · 对齐双城的宿命刻度</p>
-            <h2 class="letter-title">让两座城的钟声重合</h2>
-            <p class="letter-desc">巴黎北塔里被活埋了十八年，伦敦的雨夜里有人来召唤。把黄铜游标拨到两者共振的年份，密信上的字迹就会显影。</p>
-            <div class="dial">
-              <div class="dial-cities"><span>Paris · 北塔 105 号</span><b id="res-percent">0%</b><span>London · 泰尔森银行</span></div>
-              <div class="dial-cipher" id="cipher-preview">R _ C _ L _ _ D &nbsp; T _ &nbsp; L _ F _</div>
-              <div class="dial-track">
-                <input id="resonance" type="range" min="0" max="100" value="18" aria-label="共振游标" />
-                <div class="dial-ticks" aria-hidden="true"><span>1757</span><span>1767</span><span>1775</span><span>1789</span></div>
-              </div>
-              <p class="dial-hint">提示：梅尼特医生入狱十八年后被招回人世——那一年是 <b>17__</b>。</p>
-            </div>
-          </div>
-
-          <div class="letter-step hidden" id="step-finale">
-            <p class="letter-kicker">Book the First · Finis</p>
-            <div class="finale-seal">
-              <span class="finale-cartouche" data-ornament="cartouche"></span>
-              <span class="finale-stamp">Recalled to Life</span>
-            </div>
-            <p class="finale-zh">「招回人世。」</p>
-            <p class="letter-desc">洛里先生在浓雾与灯火之间写下回信：<em>“Wait at Dover for Mam'selle.”</em>——被活埋于巴士底狱北塔十八年的梅尼特医生，即将渡过海峡，回到苏豪区女儿的金线身旁。</p>
-            <div class="ledger">
-              <div><span>档案翻阅</span><b id="finale-count">0 / 8</b></div>
-              <div><span>第一卷</span><b>招回人世 · 完</b></div>
-            </div>
-            <ol class="next-books">
-              <li><span>II</span><b>红酒如血</b> 圣安东尼的酒桶与德发日夫人的编织名录</li>
-              <li><span>III</span><b>双生镜像</b> 老贝利法庭里达内与卡顿的对视</li>
-              <li><span>IV</span><b>北塔血书</b> 巴士底狱陷落，墙缝里的陈年控诉</li>
-              <li><span>V</span><b>断头台的黎明</b> “我现在做的，是我一生中最好的事。”</li>
-            </ol>
-            <div class="letter-actions">
-              <button id="btn-free-explore" class="btn-primary dark" type="button">回到画中自由观赏</button>
-              <button id="btn-replay" class="btn-secondary dark" type="button">从扉页重读</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <!-- ============ LOADING ============ -->
       <div id="curtain" class="curtain">
         <div class="curtain-inner">
           <span class="curtain-crest" data-ornament="rosette" data-rings="16" data-petals="18"></span>
-          <p class="curtain-en">Preparing London &amp; Paris, 1775</p>
+          <p class="curtain-en">It was the best of times, it was the worst of times</p>
           <p class="curtain-zh">正在装裱两座城的油画…</p>
           <span class="curtain-bar"><i id="curtain-bar"></i></span>
         </div>
