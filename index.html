@@ -4,14 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
     <meta name="theme-color" content="#0d1620" />
-    <meta name="description" content="这是最好的时代，也是最坏的时代——每一张牌，你撕向伦敦还是巴黎？狄更斯《双城记》油画撕卡生存游戏，20 种结局、7 种人格。" />
-    <meta property="og:title" content="双城记 · 撕裂年代" />
-    <meta property="og:description" content="这是最好的时代，也是最坏的时代——每一张牌，你撕向伦敦还是巴黎？" />
-    <title>双城记 · 撕裂年代 — 这是最好的时代，也是最坏的时代</title>
+    <meta name="description" content="1792 加来城门，今晚有三个人要过关。拿放大镜查假章、搜违禁品、盖下放行或断头台大印——90% 的人第一审就盖错章。" />
+    <meta property="og:title" content="1792：断头台城门官 · 双城记" />
+    <meta property="og:description" content="拿放大镜照出伪装贵族，一锤盖下放行或断头台大印。" />
+    <title>1792：断头台城门官 — 双城记生死验关</title>
     <link
       rel="icon"
       type="image/svg+xml"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%230d1620'/%3E%3Ccircle cx='32' cy='32' r='23' fill='none' stroke='%23d4b06a' stroke-width='1.6'/%3E%3Ccircle cx='32' cy='32' r='19' fill='none' stroke='%23d4b06a' stroke-width='.8'/%3E%3Ctext x='32' y='39' font-family='Georgia' font-size='18' text-anchor='middle' fill='%23d4b06a'%3ET%C2%B7C%3C/text%3E%3C/svg%3E"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%230d1620'/%3E%3Ccircle cx='32' cy='32' r='23' fill='none' stroke='%23d4b06a' stroke-width='1.6'/%3E%3Ccircle cx='32' cy='32' r='19' fill='none' stroke='%23d4b06a' stroke-width='.8'/%3E%3Ctext x='32' y='39' font-family='Georgia' font-size='16' text-anchor='middle' fill='%23d4b06a'%3E1792%3C/text%3E%3C/svg%3E"
     />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -25,19 +25,19 @@
       <!-- ============ TOP BAR ============ -->
       <header class="topbar">
         <a class="wordmark" href="#" id="home-link" aria-label="回到扉页">
-          <span class="crest"><span class="crest-ring" data-ornament="rosette" data-rings="9" data-petals="14"></span><span class="crest-mono">T·C</span></span>
+          <span class="crest"><span class="crest-ring" data-ornament="rosette" data-rings="9" data-petals="14"></span><span class="crest-mono">1792</span></span>
           <span class="wordmark-text">
-            <strong>双城记</strong>
-            <small>A TALE OF TWO CITIES</small>
+            <strong>断头台城门官</strong>
+            <small>CALAIS GATE · A TALE OF TWO CITIES</small>
           </span>
         </a>
         <div class="book-mark" aria-hidden="true">
-          <span class="book-roman">It was the best of times</span>
+          <span class="book-roman">Calais Barrier, 1792</span>
           <span class="book-dot">◆</span>
-          <span class="book-zh">撕 裂 年 代</span>
+          <span class="book-zh">生 死 验 关 · 黄 金 三 审</span>
         </div>
         <nav class="tools" aria-label="工具">
-          <button class="tool" id="btn-album" type="button">结局册 <b id="album-count">0</b><i id="album-total">/0</i></button>
+          <button class="tool" id="btn-album" type="button">结局档 <b id="album-count">0</b><i id="album-total">/4</i></button>
           <button class="tool" id="btn-lang" type="button">中文</button>
           <button class="tool" id="btn-style" type="button" aria-pressed="false">铜版画</button>
           <button class="tool" id="btn-audio" type="button" aria-pressed="false">声音关</button>
@@ -48,117 +48,206 @@
       <main class="stage" id="stage">
         <canvas id="stage-canvas" aria-hidden="true"></canvas>
         <div class="stage-shade"></div>
-        <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
 
-        <!-- ============ GAME ============ -->
-        <section class="game" id="game" aria-label="撕卡">
-          <div class="hud">
-            <div class="meters" id="meters"></div>
-            <div class="era">
-              <span class="era-year" id="era-year">1775</span>
-              <span class="era-book" id="era-book">第一卷 · 招回人世</span>
-              <span class="era-track"><i id="era-progress"></i></span>
-            </div>
+        <!-- ============ INTERROGATION DESK ============ -->
+        <section class="gate-desk" id="gate-desk" aria-label="城门审讯台">
+          <!-- Status HUD -->
+          <div class="gate-hud">
+            <span class="hud-pill case-badge" id="hud-case">第一审 · 1/3</span>
+            <span class="hud-pill" id="hud-gold">💰 金币 <b>20</b></span>
+            <span class="hud-pill" id="hud-strikes">⚠️ 记过 <b>0/2</b></span>
+            <span class="hud-pill" id="hud-clues">🔍 破绽 <b>0/4</b></span>
+            <span class="hud-pill timer-pill" id="hud-timer">⏱ <b id="timer-sec">60</b>s</span>
           </div>
 
-          <div class="table">
-            <div class="prompt" id="prompt">
-              <p class="prompt-who"><b id="who-name"></b><span id="who-role"></span><em class="city-tag" id="city-tag"></em></p>
-              <p class="prompt-text" id="prompt-text"></p>
-            </div>
+          <div class="desk-grid">
+            <!-- LEFT / TOP: Suspect Iron-Grate Booth -->
+            <div class="booth-col">
+              <div class="portrait-wrap">
+                <div class="portrait-frame" id="portrait-frame">
+                  <img id="suspect-img" alt="过关嫌犯" draggable="false" />
+                  <div class="iron-bars" aria-hidden="true"></div>
+                  <div class="hotspot-layer" id="hotspot-layer"></div>
+                  <!-- Magnifying Glass Lens -->
+                  <div class="mag-lens hidden" id="mag-lens" aria-hidden="true">
+                    <div class="mag-inner" id="mag-inner"></div>
+                  </div>
+                  <span class="lens-hint" id="lens-hint">🔍 按住拖动放大镜照脸与衣领找破绽</span>
+                </div>
 
-            <div class="deck" id="deck">
-              <span class="deck-shadow"></span>
-              <span class="deck-under"></span>
-              <div class="card" id="card" tabindex="0" aria-label="向左或向右拖动卡牌做出选择">
-                <div class="card-art" id="card-art"></div>
-                <div class="card-choice left" id="choice-left"></div>
-                <div class="card-choice right" id="choice-right"></div>
-                <div class="card-plate"><span id="card-name"></span></div>
+                <!-- Wanted Poster (Case 3 Urgent Dispatch) -->
+                <aside class="wanted-poster hidden" id="wanted-poster">
+                  <span class="wanted-head">🚨 死牢越狱急缉</span>
+                  <img id="wanted-img" alt="通缉死囚" />
+                  <strong id="wanted-name">查尔斯·达内</strong>
+                </aside>
+              </div>
+
+              <!-- Suspect Dialogue / Bribe Box -->
+              <div class="speech-box" id="speech-box">
+                <p class="speech-line" id="speech-line"></p>
+                <div class="bribe-bar hidden" id="bribe-bar">
+                  <span class="bribe-coin">💰 +<b id="bribe-amt">50</b> 金币封口费</span>
+                  <p id="bribe-pitch"></p>
+                </div>
               </div>
             </div>
 
-            <div class="sides" aria-hidden="true">
-              <span class="side-l">← 撕向伦敦</span>
-              <span class="side-step" id="step-count">第 1 张</span>
-              <span class="side-r">撕向巴黎 →</span>
+            <!-- RIGHT / BOTTOM: Inspection Ledger & Stamps -->
+            <div class="ledger-col">
+              <!-- Quick Actions + Mobile Tab Bar -->
+              <div class="action-strip">
+                <div class="desk-tabs" role="tablist">
+                  <button class="desk-tab active" data-tab="passport" type="button">📄 通行证</button>
+                  <button class="desk-tab" data-tab="orders" type="button">📜 戒严令</button>
+                  <button class="desk-tab" data-tab="evidence" type="button">🔎 证物 (<span id="tab-clue-num">0</span>)</button>
+                </div>
+                <div class="gadget-btns">
+                  <button class="gadget-btn" id="btn-trunk" type="button">🧳 撬箱搜身</button>
+                  <button class="gadget-btn gold" id="btn-informant" type="button">👁 透视破绽</button>
+                </div>
+              </div>
+
+              <div class="desk-panels">
+                <!-- Panel 1: Passport -->
+                <div class="desk-panel active" id="panel-passport" data-panel="passport">
+                  <div class="passport-card" id="passport-card">
+                    <div class="pass-top">
+                      <span>RÉPUBLIQUE FRANÇAISE · BORDER PASS</span>
+                      <span id="doc-num">PASS-1792</span>
+                    </div>
+                    <div class="pass-body">
+                      <img class="doc-photo" id="doc-photo" alt="证件照" />
+                      <div class="pass-fields">
+                        <div><small id="lbl-name">姓名</small><strong id="doc-name"></strong></div>
+                        <div><small id="lbl-role">申报身份</small><span id="doc-role"></span></div>
+                        <div><small id="lbl-dest">去向</small><span id="doc-dest"></span></div>
+                        <div><small id="lbl-year">签发年份</small><span id="doc-year"></span></div>
+                      </div>
+                    </div>
+                    <div class="pass-seal-row">
+                      <button class="seal-inspect-btn" id="btn-doc-seal" type="button">
+                        <span class="wax-mini" id="doc-wax">印</span>
+                        <span>🔍 点击放大核验火漆印章：<b id="doc-seal-label"></b></span>
+                      </button>
+                    </div>
+                    <!-- Slammed Ink Stamp Overlay -->
+                    <div class="slammed-stamp hidden" id="slammed-stamp"></div>
+                  </div>
+                </div>
+
+                <!-- Panel 2: Daily Orders -->
+                <div class="desk-panel" id="panel-orders" data-panel="orders">
+                  <div class="orders-card">
+                    <h3>📜 今日加来城门戒严三铁律</h3>
+                    <ul id="orders-list"></ul>
+                  </div>
+                </div>
+
+                <!-- Panel 3: Found Clues & Trunk Contraband -->
+                <div class="desk-panel" id="panel-evidence" data-panel="evidence">
+                  <div class="evidence-card">
+                    <h3>🔎 已查获破绽与搜身证物</h3>
+                    <div class="evidence-list" id="evidence-list"></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Twin Heavy Stamps -->
+              <div class="stamps-bar">
+                <button class="stamp-btn pass" id="btn-stamp-pass" type="button">
+                  <span class="stamp-icon">🟢</span>
+                  <span>
+                    <strong id="lbl-pass-main">盖绿章 · 准予出关</strong>
+                    <small id="lbl-pass-sub">放行登船前往多佛</small>
+                  </span>
+                </button>
+                <button class="stamp-btn detain" id="btn-stamp-detain" type="button">
+                  <span class="stamp-icon">🔴</span>
+                  <span>
+                    <strong id="lbl-detain-main">盖红章 · 押上断头台</strong>
+                    <small id="lbl-detain-sub">卫兵锁拿严办</small>
+                  </span>
+                </button>
+              </div>
             </div>
           </div>
-
-          <p class="after" id="after"></p>
         </section>
 
         <!-- ============ PROLOGUE ============ -->
         <section id="prologue" class="prologue" aria-label="扉页">
           <div class="prologue-inner">
-            <p class="pro-kicker">London &amp; Paris · MDCCLXXV — MDCCXCIII</p>
+            <p class="pro-kicker">CALAIS BORDER GATE · 1792 · 黄金三审挑战</p>
             <h1 class="pro-title">
-              <span class="pro-zh">双城记</span>
-              <span class="pro-en">撕裂年代 · Torn Between Two Cities</span>
+              <span class="pro-zh">断头台城门官</span>
+              <span class="pro-en">1792: Gatekeeper of Two Cities</span>
             </h1>
-            <p class="pro-by">你是泰尔森银行的小职员，往返于伦敦与巴黎。每一张牌，向左撕是伦敦，向右撕是巴黎——活到 1793 年。</p>
+            <p class="pro-by">
+              1792 年深秋，英吉利海峡封锁夜。你是加来城门的值守审讯官。<br />
+              今晚有<strong>三个人</strong>急着登船去伦敦——拿放大镜照出假章与贵族暗绣，撬开行李箱，盖下你的<strong>生死大印</strong>。
+            </p>
 
-            <div class="couplet" id="couplet">
+            <div class="couplet pro-rules">
               <div class="couplet-head">
-                <span>Charles Dickens, 1859 · <em>The Period</em></span>
-                <span id="couplet-counter">I / VI</span>
+                <span>今晚城门戒严令 · 90% 的人第一审就盖错章</span>
+                <span>3 CASES · 3 MIN</span>
               </div>
-              <p class="couplet-en" id="couplet-en"></p>
-              <p class="couplet-zh" id="couplet-zh"></p>
-              <div class="couplet-nav">
-                <button id="btn-prev-couplet" class="nav-arrow" type="button" aria-label="上一句">‹</button>
-                <div class="couplet-tabs" id="couplet-tabs"></div>
-                <button id="btn-next-couplet" class="nav-arrow" type="button" aria-label="下一句">›</button>
-              </div>
+              <ul class="pro-rule-list">
+                <li><b>查伪装：</b>按住拖动<span>🔍 放大镜</span>照嫌犯耳侧、领口、手指与证件火漆</li>
+                <li><b>搜暗格：</b>点<span>🧳 撬箱搜身</span>翻出地契、公函或绝笔密信</li>
+                <li><b>定生死：</b>放走贵族或抓错特使记大过（满 2 次你自己上断头台）；家里病女还等着你挣够药钱</li>
+              </ul>
             </div>
 
             <div class="pro-actions">
-              <button id="btn-enter" class="btn-primary" type="button">撕开 1775 年 <span aria-hidden="true">→</span></button>
-              <button id="btn-pro-audio" class="btn-secondary" type="button">开启室内乐</button>
+              <button id="btn-enter" class="btn-primary" type="button">坐上审讯台 · 传第一名过关者 →</button>
+              <button id="btn-pro-audio" class="btn-secondary" type="button">开启声效与配乐</button>
             </div>
           </div>
 
           <aside class="pass-card" aria-hidden="true">
             <div class="pass-border">
               <span class="pass-rosette" data-ornament="rosette-dense" data-stroke="#4c5c52"></span>
-              <span class="pass-bank">Tellson &amp; Co. · London &amp; Paris</span>
-              <strong class="pass-words">Recalled to Life</strong>
-              <span class="pass-zh">招 回 人 世</span>
-              <span class="pass-foot">Dover Mail · Nov. 1775 · No. 105</span>
+              <span class="pass-bank">Calais Barrier · Republic Year I</span>
+              <strong class="pass-words">Pass or Blade</strong>
+              <span class="pass-zh">放 行 · 断 头 台</span>
+              <span class="pass-foot">3 Suspects · Magnifier · Wax Seal</span>
             </div>
           </aside>
         </section>
 
-        <!-- ============ ENDING ============ -->
-        <section id="ending" class="ending hidden" aria-label="结局">
+        <!-- ============ ROUND RESULT MODAL ============ -->
+        <div id="round-modal" class="sheet-backdrop hidden" role="dialog" aria-modal="true" aria-label="本审结案">
+          <div class="round-card">
+            <p class="round-kicker" id="round-kicker">第一审结案回报</p>
+            <h3 class="round-title" id="round-title"></h3>
+            <p class="round-desc" id="round-desc"></p>
+            <div class="round-deltas" id="round-deltas"></div>
+            <button class="btn-primary full-w" id="btn-next-case" type="button">传下一名过关者 →</button>
+          </div>
+        </div>
+
+        <!-- ============ FINAL VERDICT ENDING ============ -->
+        <section id="ending" class="ending hidden" aria-label="审判官结局">
           <div class="ending-inner">
             <p class="ending-kicker" id="ending-kicker"></p>
             <h2 class="ending-title" id="ending-title"></h2>
-            <p class="ending-death" id="ending-death"></p>
+            <p class="ending-death" id="ending-stats"></p>
             <p class="ending-epitaph" id="ending-epitaph"></p>
-            <div class="persona">
-              <span class="persona-art" id="persona-art"></span>
-              <div>
-                <span class="persona-label">你的人格</span>
-                <strong class="persona-name" id="persona-name"></strong>
-                <p class="persona-line" id="persona-line"></p>
-                <p class="persona-quote" id="persona-quote"></p>
-              </div>
-            </div>
+            <div class="verdict-log" id="verdict-log"></div>
             <div class="ending-actions">
-              <button class="btn-primary" id="btn-share" type="button">保存结局卡</button>
-              <button class="btn-secondary" id="btn-again" type="button">再撕一局</button>
-              <button class="text-btn" id="btn-rewind" type="button">命运回溯 · 撤回最后一张</button>
+              <button class="btn-primary" id="btn-share" type="button">生成审判官鉴定书</button>
+              <button class="btn-secondary" id="btn-again" type="button">重新坐堂审案</button>
             </div>
           </div>
         </section>
       </main>
 
       <!-- ============ SHARE ============ -->
-      <div id="share" class="sheet-backdrop hidden" role="dialog" aria-modal="true" aria-label="结局卡">
+      <div id="share" class="sheet-backdrop hidden" role="dialog" aria-modal="true" aria-label="鉴定书">
         <div class="share-box">
           <button class="sheet-close" id="btn-close-share" type="button" aria-label="关闭">×</button>
-          <img id="share-img" alt="结局卡" />
+          <img id="share-img" alt="审判官鉴定书" />
           <p class="share-tip" id="share-tip">手机长按图片保存，电脑点下方按钮下载</p>
           <div class="share-actions">
             <a class="btn-primary" id="share-download" download="双城记-结局卡.png">下载结局卡</a>
@@ -168,40 +257,24 @@
       </div>
 
       <!-- ============ ALBUM ============ -->
-      <div id="album" class="sheet-backdrop hidden" role="dialog" aria-modal="true" aria-label="结局册">
+      <div id="album" class="sheet-backdrop hidden" role="dialog" aria-modal="true" aria-label="结局档">
         <div class="letter album-box">
           <span class="letter-rule top" data-ornament="wave"></span>
           <span class="letter-rule bottom" data-ornament="wave"></span>
           <button class="letter-close" id="btn-close-album" type="button" aria-label="关闭">×</button>
-          <p class="letter-kicker">Tellson's Ledger · 命运账簿</p>
-          <h2 class="letter-title">结局册</h2>
+          <p class="letter-kicker">Calais Gate Archive · 城门审讯档案库</p>
+          <h2 class="letter-title">四类审判官结局</h2>
           <p class="letter-desc" id="album-desc"></p>
-          <h3 class="album-h">结局</h3>
           <div class="album-grid" id="album-endings"></div>
-          <h3 class="album-h">人格</h3>
-          <div class="album-grid personas" id="album-personas"></div>
         </div>
-      </div>
-
-      <!-- ============ VOCAB ============ -->
-      <div id="vocab" class="vocab hidden" role="dialog" aria-label="原著词注">
-        <div class="vocab-head">
-          <div><strong id="vocab-word"></strong><span id="vocab-ipa" class="vocab-ipa"></span></div>
-          <div class="vocab-actions">
-            <button id="btn-speak" type="button" title="英音朗读">♪</button>
-            <button id="btn-close-vocab" type="button" aria-label="关闭">×</button>
-          </div>
-        </div>
-        <p id="vocab-meaning" class="vocab-meaning"></p>
-        <p id="vocab-context" class="vocab-context"></p>
       </div>
 
       <!-- ============ LOADING ============ -->
       <div id="curtain" class="curtain">
         <div class="curtain-inner">
           <span class="curtain-crest" data-ornament="rosette" data-rings="16" data-petals="18"></span>
-          <p class="curtain-en">It was the best of times, it was the worst of times</p>
-          <p class="curtain-zh">正在装裱两座城的油画…</p>
+          <p class="curtain-en">1792 · Lighting the Calais Gate Torches…</p>
+          <p class="curtain-zh">正在点亮 1792 加来城门审讯台…</p>
           <span class="curtain-bar"><i id="curtain-bar"></i></span>
         </div>
       </div>

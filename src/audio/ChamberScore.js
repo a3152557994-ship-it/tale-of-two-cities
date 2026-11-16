@@ -301,6 +301,119 @@ export class ChamberScore {
     });
   }
 
+  playClueFound() {
+    if (!this.enabled || !this.ctx) return;
+    const now = this.ctx.currentTime;
+    [587.33, 880.0].forEach((freq, i) => {
+      const t0 = now + i * 0.065;
+      const osc = this.ctx.createOscillator();
+      const g = this.ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, t0);
+      g.gain.setValueAtTime(0.001, t0);
+      g.gain.linearRampToValueAtTime(0.14, t0 + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.42);
+      osc.connect(g);
+      g.connect(this.reverb);
+      osc.start(t0);
+      osc.stop(t0 + 0.45);
+    });
+  }
+
+  playTrunkOpen() {
+    if (!this.enabled || !this.ctx) return;
+    const now = this.ctx.currentTime;
+    const src = this.ctx.createBufferSource();
+    src.buffer = this.noiseBuffer;
+    const bp = this.ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = 620;
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.24, now);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+    src.connect(bp);
+    bp.connect(g);
+    g.connect(this.masterGain);
+    src.start(now);
+    src.stop(now + 0.24);
+
+    const osc = this.ctx.createOscillator();
+    const og = this.ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(140, now);
+    osc.frequency.exponentialRampToValueAtTime(75, now + 0.18);
+    og.gain.setValueAtTime(0.12, now);
+    og.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+    osc.connect(og);
+    og.connect(this.reverb);
+    osc.start(now);
+    osc.stop(now + 0.22);
+  }
+
+  playCoinPouch() {
+    if (!this.enabled || !this.ctx) return;
+    const now = this.ctx.currentTime;
+    [1318.5, 1760.0, 2093.0, 2637.0].forEach((freq, idx) => {
+      const t0 = now + idx * 0.045;
+      const osc = this.ctx.createOscillator();
+      const g = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, t0);
+      g.gain.setValueAtTime(0.09, t0);
+      g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.28);
+      osc.connect(g);
+      g.connect(this.reverb);
+      osc.start(t0);
+      osc.stop(t0 + 0.3);
+    });
+  }
+
+  playStampSlam(isGuillotine = false) {
+    if (!this.enabled || !this.ctx) return;
+    const now = this.ctx.currentTime;
+    // Heavy desk thud
+    const osc = this.ctx.createOscillator();
+    const og = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(isGuillotine ? 135 : 115, now);
+    osc.frequency.exponentialRampToValueAtTime(36, now + 0.32);
+    og.gain.setValueAtTime(0.32, now);
+    og.gain.exponentialRampToValueAtTime(0.001, now + 0.36);
+    osc.connect(og);
+    og.connect(this.masterGain);
+    osc.start(now);
+    osc.stop(now + 0.38);
+
+    // Crisp stamp slap / metallic blade ring on guillotine
+    const src = this.ctx.createBufferSource();
+    src.buffer = this.noiseBuffer;
+    const flt = this.ctx.createBiquadFilter();
+    flt.type = isGuillotine ? 'highpass' : 'bandpass';
+    flt.frequency.value = isGuillotine ? 1800 : 900;
+    const ng = this.ctx.createGain();
+    ng.gain.setValueAtTime(0.26, now);
+    ng.gain.exponentialRampToValueAtTime(0.001, now + (isGuillotine ? 0.28 : 0.14));
+    src.connect(flt);
+    flt.connect(ng);
+    ng.connect(this.reverb);
+    src.start(now);
+    src.stop(now + 0.3);
+
+    if (isGuillotine) {
+      const ring = this.ctx.createOscillator();
+      const rg = this.ctx.createGain();
+      ring.type = 'triangle';
+      ring.frequency.setValueAtTime(622.25, now + 0.02);
+      ring.frequency.exponentialRampToValueAtTime(311.13, now + 0.55);
+      rg.gain.setValueAtTime(0.11, now + 0.02);
+      rg.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+      ring.connect(rg);
+      rg.connect(this.reverb);
+      ring.start(now + 0.02);
+      ring.stop(now + 0.62);
+    }
+  }
+
   speakEnglishSnippet(text) {
     if (!('speechSynthesis' in window) || !text) return;
     window.speechSynthesis.cancel();
